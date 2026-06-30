@@ -2,6 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white)](https://numpy.org/)
+[![pandas](https://img.shields.io/badge/pandas-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -98,7 +99,7 @@ cd 02_parkinson_regression
 python parkinson_regression.py
 ```
 
-Or open the corresponding Jupyter notebook for interactive exploration.
+
 
 ---
 
@@ -116,29 +117,22 @@ ICTE4SS-Machine-Learning-Labs/
 │   └── optimization_demo.py
 ├── 02_parkinson_regression/
 │   ├── parkinson_regression.py
-│   ├── parkinson_regression.ipynb
 │   └── data/
 ├── 03_parkinson_knn_regression/
 │   ├── knn_regression.py
-│   ├── knn_regression.ipynb
 │   └── data/
 ├── 04_mole_segmentation/
 │   ├── mole_segmentation.py
-│   ├── mole_segmentation.ipynb
 │   └── data/images/
 ├── 05_kidney_disease_classification/
 │   ├── kidney_classification.py
-│   ├── kidney_classification.ipynb
 │   └── data/
 ├── 06_covid_serological_analysis/
 │   ├── covid_roc_analysis.py
-│   ├── covid_roc_analysis.ipynb
 │   └── data/
 └── 07_eeg_signal_processing/
     ├── central_limit_theorem.py
-    ├── central_limit_theorem.ipynb
-    ├── fastica_bss.py
-    └── fastica_bss.ipynb
+    └── fastica_bss.py
 ```
 
 ---
