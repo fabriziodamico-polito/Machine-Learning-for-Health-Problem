@@ -58,13 +58,13 @@ class SolveMinProbl:
 class SolveLLS(SolveMinProbl):
     """Solver using closed-form Linear Least Squares (LLS).
 
-    Computes the least-squares solution with an SVD-based routine.
+    Computes w_hat = (A^T A)^{-1} A^T y.
     """
 
     def run(self):
         A = self.matr
         y = self.y
-        what = np.linalg.lstsq(A, y, rcond=None)[0]
+        what = np.linalg.inv(A.T @ A) @ (A.T @ y)
         self.what = what
         self.min = np.linalg.norm(A @ what - y) ** 2
 
@@ -82,8 +82,7 @@ class SolveGrad(SolveMinProbl):
         self.Nit = Nit
         A = self.matr
         y = self.y
-        w = np.zeros((self.Nf, 1), dtype=float)
-        sqerr = np.linalg.norm(A @ w - y) ** 2
+        w = np.random.rand(self.Nf, 1)
 
         for i in range(Nit):
             grad = 2 * A.T @ (A @ w - y)
@@ -132,9 +131,8 @@ class SolveSteepDesc(SolveMinProbl):
         self.tol = tol
         A = self.matr
         y = self.y
-        w = np.zeros((self.Nf, 1), dtype=float)
+        w = np.random.rand(self.Nf, 1)
         H = 2 * A.T @ A
-        sqerr = np.linalg.norm(A @ w - y) ** 2
 
         for i in range(Nit):
             grad = 2 * A.T @ (A @ w - y)

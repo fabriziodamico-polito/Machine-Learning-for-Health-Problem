@@ -1,66 +1,68 @@
 # Machine Learning for Health Labs
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![NumPy](https://img.shields.io/badge/NumPy-2.5-013243?logo=numpy&logoColor=white)](https://numpy.org/)
-[![pandas](https://img.shields.io/badge/pandas-3.0-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
-[![CI](https://github.com/fabriziodamico-polito/Machine-Learning-for-Health-Problem/actions/workflows/ci.yml/badge.svg)](https://github.com/fabriziodamico-polito/Machine-Learning-for-Health-Problem/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![NumPy](https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white)](https://numpy.org/)
+[![pandas](https://img.shields.io/badge/pandas-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 
-> Laboratory projects for the **Machine Learning for Health** course at [Politecnico di Torino](https://www.polito.it/), covering core machine-learning techniques applied to biomedical data, medical images and signal-processing problems.
+> Laboratory assignments for the **Machine Learning for Health** course at [Politecnico di Torino](https://www.polito.it/), covering core Machine Learning techniques applied to real-world biomedical and signal processing problems.
 
 ---
 
 ## 📋 Overview
 
-This repository contains seven laboratory projects spanning the machine-learning pipeline, from numerical optimization to classification, image segmentation and blind source separation. Each lab is self-contained and includes dedicated documentation, reproducible Python code and its required data.
+This repository contains 7 laboratory projects spanning the full ML pipeline — from optimization fundamentals to advanced signal processing. Each lab applies established ML techniques to a specific domain problem, with reproducible code and detailed documentation.
 
-| # | Lab | Domain | Techniques | Dataset |
-| --- | --- | --- | --- | --- |
-| 01 | [Optimization Methods](./01_optimization_methods/) | Fundamentals | Least Squares, Gradient Descent, Steepest Descent | Synthetic |
-| 02 | [Parkinson Regression](./02_parkinson_regression/) | Neurology | Linear Regression, Feature Selection, Patient-Level Validation | [Parkinsons Telemonitoring](https://archive.ics.uci.edu/dataset/189/parkinson) |
-| 03 | [Parkinson KNN Regression](./03_parkinson_knn_regression/) | Neurology | KNN-LLS, Ridge Regularization, Model Selection | [Parkinsons Telemonitoring](https://archive.ics.uci.edu/dataset/189/parkinson) |
-| 04 | [Mole Segmentation](./04_mole_segmentation/) | Dermatology | K-Means, DBSCAN, Sobel Edge Detection | Dermoscopic Images |
-| 05 | [Kidney Disease Classification](./05_kidney_disease_classification/) | Nephrology | Decision Trees, Random Forest, Missing-Data Imputation | [Chronic Kidney Disease](https://archive.ics.uci.edu/dataset/336/chronic+kidney+disease) |
-| 06 | [COVID Serological Analysis](./06_covid_serological_analysis/) | Epidemiology | ROC Curves, AUC, Youden's J, Bootstrap | COVID-19 Serological Study |
-| 07 | [Signal Processing](./07_eeg_signal_processing/) | Neuroscience | CLT, Box-Muller, FastICA, PCA, Hypothesis Testing | Synthetic Signals |
+| #  | Lab                                                                 | Domain       | Techniques                                        | Dataset                                                                                       |
+| -- | ------------------------------------------------------------------- | ------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 01 | [Optimization Methods](./01_optimization_methods/)                   | Fundamentals | LLS, Gradient Descent, Steepest Descent           | Synthetic                                                                                     |
+| 02 | [Parkinson Regression](./02_parkinson_regression/)                   | Neurology    | Linear Regression (LLS & SD), Feature Selection   | [Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) |
+| 03 | [Parkinson KNN Regression](./03_parkinson_knn_regression/)           | Neurology    | KNN-LLS, Ridge Regression, Model Selection        | [Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) |
+| 04 | [Mole Segmentation](./04_mole_segmentation/)                         | Dermatology  | K-Means, DBSCAN, Sobel Edge Detection             | Dermoscopic Images                                                                            |
+| 05 | [Kidney Disease Classification](./05_kidney_disease_classification/) | Nephrology   | Decision Trees, Random Forest, LLS Imputation     | [Chronic Kidney Disease](https://archive.ics.uci.edu/ml/datasets/Chronic_Kidney_Disease)       |
+| 06 | [COVID Serological Analysis](./06_covid_serological_analysis/)       | Epidemiology | ROC Curves, AUC, Youden's J, DBSCAN               | COVID-19 Serological Study                                                                    |
+| 07 | [EEG Signal Processing](./07_eeg_signal_processing/)                 | Neuroscience | CLT, Box-Muller, FastICA, PCA, Hypothesis Testing | Synthetic Signals                                                                             |
 
 ---
 
 ## 🔬 ML Techniques Map
 
-### Regression and Optimization
+### Regression
 
-- **Linear Least Squares (LLS)** — stable least-squares estimation through an SVD-based numerical solver
-- **Gradient Descent** — fixed-step iterative minimization
-- **Steepest Descent** — iterative optimization with an adaptive step size
-- **KNN-LLS** — local linear regression on nearest neighbors with ridge stabilization
+- **Linear Least Squares (LLS)** — closed-form solution via normal equations
+- **Steepest Descent** — iterative optimization with adaptive step size
+- **Gradient Descent** — fixed learning rate iterative minimization
+- **KNN-LLS** — local linear regression on K nearest neighbors with ridge regularization
 
 ### Classification
 
-- **Decision Trees (CART)** — entropy-based splitting for interpretable classification
-- **Random Forest** — ensemble classification for chronic kidney disease prediction
-- **ROC Analysis** — sensitivity/specificity trade-off, AUC estimation and threshold exploration
+- **Decision Trees (CART)** — entropy-based splitting for interpretable models
+- **Random Forest** — ensemble learning with 100–1000 estimators
+- **ROC Analysis** — sensitivity/specificity trade-off, AUC computation, threshold optimization
 
-### Clustering and Segmentation
+### Clustering & Segmentation
 
-- **K-Means** — grayscale quantization for candidate lesion segmentation
-- **DBSCAN** — spatial clustering for mole detection and serology sensitivity analysis
-- **Sobel Filters** — gradient-based border extraction
+- **K-Means** — color quantization for image segmentation
+- **DBSCAN** — density-based spatial clustering for mole detection and outlier removal
 
-### Signal Processing and Statistics
+### Signal Processing
 
 - **FastICA** — Independent Component Analysis for blind source separation
-- **PCA** — decorrelation baseline for source recovery
-- **Central Limit Theorem** — approximate Gaussian generation from uniform random variables
-- **Box-Muller Transform** — direct Gaussian sampling
-- **Anderson-Darling Test** — goodness-of-fit testing for normality
-- **Youden's J Statistic** — exploratory threshold selection for binary tests
+- **PCA** — Principal Component Analysis for dimensionality reduction
+- **Sobel Filters** — gradient-based edge detection
+
+### Statistical Methods
+
+- **Central Limit Theorem** — approximate Gaussian generation from uniform RVs
+- **Box-Muller Transform** — exact Gaussian sampling
+- **Anderson-Darling Test** — goodness-of-fit for normality
+- **Youden's J Statistic** — optimal threshold selection for binary classifiers
 
 ### Data Preprocessing
 
-- **Z-Score Normalization** — training-set mean and standard-deviation scaling
-- **Missing-Data Imputation** — median and iterative regression strategies
-- **Feature Selection** — identifier, target-proxy and collinearity removal
+- **Z-Score Normalization** — mean/std standardization
+- **Missing Data Imputation** — regression-based (LLS) and median imputation
+- **Feature Selection** — correlation analysis, collinearity removal
 
 ---
 
@@ -68,8 +70,8 @@ This repository contains seven laboratory projects spanning the machine-learning
 
 ### Prerequisites
 
-- Python 3.12
-- Git
+- Python 3.10+
+- pip
 
 ### Installation
 
@@ -78,91 +80,73 @@ This repository contains seven laboratory projects spanning the machine-learning
 git clone https://github.com/fabriziodamico-polito/Machine-Learning-for-Health-Problem.git
 cd Machine-Learning-for-Health-Problem
 
-# Create a virtual environment
+# Create and activate virtual environment
 python -m venv .venv
-```
+source .venv/bin/activate    # Linux/macOS
+.venv\Scripts\activate       # Windows
 
-Activate the environment:
-
-```bash
-# Linux/macOS
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-```
-
-Install the tested dependencies:
-
-```bash
-python -m pip install -r requirements.txt
+# Install dependencies
+pip install -r requirements.txt
 ```
 
 ### Running a Lab
 
-Each lab can be executed from its folder:
+Each lab is self-contained. Navigate to the desired folder and run:
 
 ```bash
 cd 02_parkinson_regression
 python parkinson_regression.py
 ```
 
-Run the complete validation suite from the repository root:
 
-```bash
-python -m unittest discover -s tests -v
-python scripts/run_all_labs.py
-python scripts/check_secrets.py
-```
 
 ---
 
 ## 📁 Project Structure
 
-```text
+```
 Machine-Learning-for-Health-Problem/
 ├── README.md
 ├── DATASETS.md
+├── .gitignore
 ├── requirements.txt
 ├── utils/
-│   └── minimization.py
-├── scripts/
-│   ├── check_secrets.py
-│   └── run_all_labs.py
-├── tests/
-│   └── test_data_validation.py
+│   ├── __init__.py
+│   └── minimization.py            # Shared optimization solvers (LLS, GD, SD)
 ├── 01_optimization_methods/
+│   └── optimization_demo.py
 ├── 02_parkinson_regression/
+│   ├── parkinson_regression.py
+│   └── data/
 ├── 03_parkinson_knn_regression/
+│   ├── knn_regression.py
+│   └── data/
 ├── 04_mole_segmentation/
+│   ├── mole_segmentation.py
+│   └── data/images/
 ├── 05_kidney_disease_classification/
+│   ├── kidney_classification.py
+│   └── data/
 ├── 06_covid_serological_analysis/
+│   ├── covid_roc_analysis.py
+│   └── data/
 └── 07_eeg_signal_processing/
+    ├── central_limit_theorem.py
+    └── fastica_bss.py
 ```
 
 ---
 
 ## 🛠️ Shared Utilities
 
-The [`utils/minimization.py`](./utils/minimization.py) module provides a reusable object-oriented framework for linear minimization problems:
+The [`utils/minimization.py`](./utils/minimization.py) module provides a reusable OOP framework for solving linear minimization problems:
 
-| Class | Method | Description |
-| --- | --- | --- |
-| `SolveMinProbl` | Base class | Common plotting and result utilities |
-| `SolveLLS` | Least Squares | Stable SVD-based solution |
-| `SolveGrad` | Gradient Descent | Fixed learning rate |
-| `SolveSteepDesc` | Steepest Descent | Adaptive step size |
-
----
-
-## ✅ Validation
-
-- Repeated Parkinson recordings are separated by patient across data partitions.
-- Normalization and missing-data imputation are learned from training data only.
-- Numerical convergence, preprocessing boundaries and source recovery are covered by automated tests.
-- GitHub Actions compiles the code, runs the test suite and executes every laboratory script.
-
-Detailed assumptions, results and limitations are documented inside each laboratory folder.
+| Class              | Method           | Description                                                     |
+| ------------------ | ---------------- | --------------------------------------------------------------- |
+| `SolveMinProbl`  | —               | Abstract base class with common plotting and printing           |
+| `SolveLLS`       | Closed-form      | $(A^T A)^{-1} A^T y$                                          |
+| `SolveGrad`      | Gradient Descent | Fixed learning rate$\gamma$                                   |
+| `SolveSteepDesc` | Steepest Descent | Adaptive$\gamma_k = \|\nabla J\|^2 / (\nabla J^T H \nabla J)$ |
 
 ---
 

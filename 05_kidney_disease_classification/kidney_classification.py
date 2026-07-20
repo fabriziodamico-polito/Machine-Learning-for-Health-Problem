@@ -1,204 +1,258 @@
-import os
-
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
+import numpy as np
 from sklearn import tree
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.experimental import enable_iterative_imputer  # noqa: F401
-from sklearn.impute import IterativeImputer, SimpleImputer
-from sklearn.linear_model import BayesianRidge
-from sklearn.metrics import (
-    accuracy_score,
-    balanced_accuracy_score,
-    confusion_matrix,
-    f1_score,
-)
+from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from utils.minimization import SolveLLS
 
-
-RANDOM_SEED = 42
-
+plt.close('all')
 
 class ChronicKidneyDiseaseLab:
-    """Leakage-safe comparison of two missing-data strategies for CKD."""
-
-    def __init__(self, filepath, seed=RANDOM_SEED):
+    def __init__(self, filepath):
         self.filepath = filepath
-        self.seed = seed
-        self.feature_names = [
-            'age', 'bp', 'sg', 'al', 'su', 'rbc', 'pc', 'pcc', 'ba',
-            'bgr', 'bu', 'sc', 'sod', 'pot', 'hemo', 'pcv', 'wbcc',
-            'rbcc', 'htn', 'dm', 'cad', 'appet', 'pe', 'ane',
-        ]
-        self.column_names = [*self.feature_names, 'classk']
-        self.categorical_features = {
-            'sg', 'al', 'su', 'rbc', 'pc', 'pcc', 'ba', 'htn', 'dm',
-            'cad', 'appet', 'pe', 'ane',
-        }
-        self.target_names = ['notckd', 'ckd']
+        # define the feature names:
+        self.feat_names = ['age','bp','sg','al','su','rbc','pc',
+                           'pcc','ba','bgr','bu','sc','sod','pot','hemo',
+                           'pcv','wbcc','rbcc','htn','dm','cad','appet','pe',
+                           'ane','classk'] #numerical
+        self.feat_cat = np.array(['num','num','cat','cat','cat','cat','cat','cat','cat',
+                                  'num','num','num','num','num','num','num','num','num',
+                                  'cat','cat','cat','cat','cat','cat','cat']) # categorical 
+        self.target_names = ['notckd','ckd'] # for the final plots
+        
+        # Mapping for categorical data
         self.mapping = {
-            'normal': 0,
-            'abnormal': 1,
-            'present': 1,
-            'notpresent': 0,
-            'yes': 1,
-            ' yes': 1,
-            'no': 0,
-            '\tno': 0,
-            '\tyes': 1,
-            'ckd': 1,
-            'notckd': 0,
-            'poor': 1,
-            'good': 0,
-            'ckd\t': 1,
+            'normal':0, 'abnormal':1, 'present':1, 'notpresent':0,
+            'yes':1, ' yes':1, 'no':0, '\tno':0, '\tyes':1,
+            'ckd':1, 'notckd':0, 'poor':1, 'good':0, 'ckd\t':1
         }
-        self.results = []
+        
+        # Data containers
+        self.xx = None      # Original dataframe (mapped)
+        self.Xtrain = None  # Training dataset (complete cases)
+        self.x_new = None   # Regressed dataset
+        self.y_new = None   # Median imputed dataset
 
+    # Loads data, maps categorical values, and prints stats
     def load_and_preprocess(self):
-        data = pd.read_csv(
-            self.filepath,
-            sep=',',
-            skiprows=29,
-            names=self.column_names,
-            header=None,
-            na_values=['?', '\t?'],
-        )
-        data = data.replace(self.mapping)
-        data = data.apply(pd.to_numeric, errors='coerce')
-        data = data.dropna(subset=['classk']).reset_index(drop=True)
-        data['classk'] = data['classk'].astype(int)
-        self.data = data
+        # import the dataframe:
+        self.xx = pd.read_csv(self.filepath, sep=',',
+                              skiprows=29, names=self.feat_names, 
+                              header=None, na_values=['?','\t?']) #
+        
+        # change categorical data into numbers:
+        self.xx = self.xx.replace(self.mapping.keys(), self.mapping.values())
 
-        print(f"Patients: {len(data)}")
-        print(f"Features: {len(self.feature_names)}")
-        print(f"Missing predictor values: {int(data[self.feature_names].isna().sum().sum())}")
+        print('cardinality of each feature:')
+        print(self.xx.nunique()) # show the cardinality of each feature
+        
+        # Check missing values in each row
+        miss_values = self.xx.isnull().sum(axis=1)
+        for k in range(miss_values.max()+1):
+            print(k, np.sum(miss_values==k))
+        print(self.xx.info())
+        print(self.xx.describe())
 
-    def split_data(self, test_size=0.3):
-        row_ids = np.arange(len(self.data))
-        train_ids, test_ids = train_test_split(
-            row_ids,
-            test_size=test_size,
-            random_state=self.seed,
-            stratify=self.data['classk'],
-        )
-        self.train_ids = set(train_ids.tolist())
-        self.test_ids = set(test_ids.tolist())
-        if self.train_ids & self.test_ids:
-            raise RuntimeError("Train/test leakage detected")
+    # Manages missing data through regression (LLS)
+    def regression(self, plotCDF=False):
+        print("\n--- Performing Regression Imputation ---")
+        x = self.xx.copy() 
+        x = x.dropna(thresh=19) # drop rows with less than 19 = Nf-6 recorded features
+        x.reset_index(drop=True, inplace=True) # necessary to have index without "jumps"
+        n = x.isnull().sum(axis=1) # check the number of missing values in each row
+        print('Number of points in the original dataset: ', self.xx.shape[0])
+        print('reduced dataset: at least 19 values per row')
+        print('number of points in the reduced dataset: ', x.shape[0])
+        print('max number of missing values in the reduced dataset: ', n.max())
+        
+        # take the rows with exactly Nf=25 useful features; this is going to be the training dataset for regression
+        self.Xtrain = x.dropna(thresh=25) # for training the model we use the rows with all the features
+        self.Xtrain.reset_index(drop=True, inplace=True) # reset the index of the dataframe
+        print('Number of points in the training dataset: ', self.Xtrain.shape[0])
+        
+        # normalization
+        XtrainNp = self.Xtrain.values # Numpy 2D array
+        mm = XtrainNp.mean(axis=0)
+        ss = XtrainNp.std(axis=0)
+        XtrainNp_norm = (XtrainNp - mm) / ss
+        
+        # normalize the entire dataset using the coeffs found for the training dataset
+        X_normNp = (x.values - mm) / ss
+        Np, Nf = X_normNp.shape
+        
+        # run linear regression using least squares on all the missing data
+        for kk in range(Np):
+            xrow = X_normNp[kk,:] # k-th row, k-th patient
+            mask = np.isnan(xrow) # columns with nan in row k
+            Data_tr_norm = XtrainNp_norm[:,~mask] # remove the columns from the training dataset
+            y_tr_norm = XtrainNp_norm[:,mask] # columns to be regressed
+            solver = SolveLLS(y=y_tr_norm, A=Data_tr_norm)
+            solver.run()
+            w = solver.what 
+            ytest_norm = np.dot(xrow[~mask], w)
+            xrow[mask] = ytest_norm 
+            X_normNp[kk] = xrow # substitute nan with regressed values
+        
+        x_new_np = X_normNp * ss + mm # denormalize
+        
+        # manage categorical features | rationale: the regression give me numerical features (e.g 0,8 for a feature that can take only value 0 or 1)
+        # get the possible values (i.e. alphabet) for the categorical features
+        alphabets = []
+        for k in range(len(self.feat_cat)):
+            if self.feat_cat[k] == 'cat':
+                val = self.Xtrain[self.Xtrain.columns[k]].unique()
+                alphabets.append(np.sort(val))
+            else:
+                alphabets.append('num')
+        # substitute the regressed numerical values with the closest value in the alphabet
+        index = np.argwhere(self.feat_cat == 'cat').flatten()
+        for k in index:
+            val = alphabets[k].flatten()
+            c = x_new_np[:,k]
+            val = val.reshape(1,-1) # force row vector
+            c = c.reshape(-1,1) # force column vector
+            d = (val - c)**2 # find the square distances
+            ii = d.argmin(axis=1) # find the closest categorical value
+            cc = val[0,ii] # cc contains only the categorical values
+            x_new_np[:,k] = cc
+        
+        self.x_new = pd.DataFrame(x_new_np, columns=self.feat_names) # go back to Pandas dataframe
+        
+        # check the distributions
+        if plotCDF:
+            L = self.x_new.shape[0]
+            for k in range(Nf):
+                plt.figure()
+                a = self.xx[self.xx.columns[k]].dropna()
+                M = a.shape[0]
+                plt.plot(np.sort(a), np.arange(M)/M, label='original dataset')
+                plt.plot(np.sort(self.x_new[self.x_new.columns[k]]), np.arange(L)/L, label='regressed dataset')
+                plt.title('CDF of ' + self.xx.columns[k])
+                plt.xlabel('x')
+                plt.ylabel('P(X<=x)')
+                plt.grid()
+                plt.legend(loc='upper left')
+                plt.show()
 
-        train = self.data.iloc[train_ids]
-        test = self.data.iloc[test_ids]
-        self.X_train = train[self.feature_names]
-        self.X_test = test[self.feature_names]
-        self.y_train = train['classk'].to_numpy()
-        self.y_test = test['classk'].to_numpy()
-        print(f"Leakage-free split: {len(train)} train / {len(test)} test patients")
+    # Creates y_new by substituting missing values with median of Xtrain
+    def create_median_imputed_dataset(self):
+        print("\n--- Creating Median Imputed Dataset (y_new) ---")
+        # find the median value of each feature in Xtrain
+        medians = self.Xtrain.median()
+        # substitute each missing value of the original dataframe x (xx) with the median value
+        self.y_new = self.xx.fillna(medians)
+        print(f"y_new shape: {self.y_new.shape}")
 
-    def _snap_categorical_values(self, train_values, test_values):
-        for column in self.categorical_features:
-            index = self.feature_names.index(column)
-            valid_values = np.sort(self.X_train[column].dropna().unique())
-            if len(valid_values) == 0:
-                continue
-            for values in (train_values, test_values):
-                distances = np.abs(values[:, index, None] - valid_values[None, :])
-                values[:, index] = valid_values[np.argmin(distances, axis=1)]
-        return train_values, test_values
+    #Trains a Decision Tree and evaluates it
+    def train_decision_tree(self, train_data, test_data, test_label_name='x_new'):
+        print(f"\n--- Decision Tree (Train: Xtrain, Test: {test_label_name}) ---")
+        # x_new (complete dataset with the value estimated with LLS) is used as test set
+        target = train_data.classk
+        inform = train_data.drop('classk', axis=1)
 
-    def impute(self, strategy):
-        if strategy == 'median':
-            imputer = SimpleImputer(strategy='median')
-        elif strategy == 'regression':
-            imputer = IterativeImputer(
-                estimator=BayesianRidge(),
-                initial_strategy='median',
-                max_iter=20,
-                random_state=self.seed,
-                skip_complete=True,
-            )
-        else:
-            raise ValueError(f"Unknown imputation strategy: {strategy}")
+        #Let us use only the complete data (no missing values) to train the decision tree
+        clf = tree.DecisionTreeClassifier(criterion='entropy', random_state=4)
+        clf = clf.fit(inform, target)
+        
+        # Prediction
+        test_pred = clf.predict(test_data.drop('classk', axis=1))
+        
+        print(f'Performance of the decision tree on {test_label_name}:')
+        print('accuracy =', accuracy_score(test_data.classk, test_pred))
+        print(confusion_matrix(test_data.classk, test_pred)) 
+        # [TrueNegative, FalsePositive
+        #  FalseNegative, Truepositive]
+    
+        plt.figure(figsize=(10,15))
+        tree.plot_tree(clf, feature_names=self.feat_names[:24],
+                       class_names=self.target_names, rounded=True,
+                       proportion=False, filled=True)
+        plt.savefig('decision_tree.png')
 
-        # Fit only on the training partition, then transform the untouched test set.
-        X_train = imputer.fit_transform(self.X_train)
-        X_test = imputer.transform(self.X_test)
-        return self._snap_categorical_values(X_train, X_test)
+        return clf
 
-    def evaluate(self, model_name, model, strategy, X_train, X_test):
-        model.fit(X_train, self.y_train)
-        predictions = model.predict(X_test)
-        result = {
-            'imputation': strategy,
-            'model': model_name,
-            'accuracy': accuracy_score(self.y_test, predictions),
-            'balanced_accuracy': balanced_accuracy_score(self.y_test, predictions),
-            'f1': f1_score(self.y_test, predictions),
-            'confusion_matrix': confusion_matrix(self.y_test, predictions),
-        }
-        self.results.append(result)
-
-        print(f"\n{strategy.title()} imputation + {model_name}")
-        print(f"Accuracy:          {result['accuracy']:.3f}")
-        print(f"Balanced accuracy: {result['balanced_accuracy']:.3f}")
-        print(f"F1:                {result['f1']:.3f}")
-        print(result['confusion_matrix'])
-        return model
-
-    def plot_feature_importance(self, model, strategy):
-        order = np.argsort(model.feature_importances_)[::-1]
+    #Trains a Random Forest and evaluates it
+    def train_random_forest(self, train_data, test_data, n_estimators, test_label_name):
+        print(f"\n--- Random Forest (n={n_estimators}) (Train: Xtrain, Test: {test_label_name}) ---")
+        target = train_data.classk
+        inform = train_data.drop('classk', axis=1)
+        
+        rf = RandomForestClassifier(n_estimators=n_estimators, random_state=4)
+        rf.fit(inform, target)
+        
+        test_pred = rf.predict(test_data.drop('classk', axis=1))
+        
+        print(f'Performance of Random Forest (n={n_estimators}) on {test_label_name}:')
+        print('accuracy =', accuracy_score(test_data.classk, test_pred))
+        print(confusion_matrix(test_data.classk, test_pred))
+        
+        importances = rf.feature_importances_
+        indices = np.argsort(importances)[::-1]
+        
         plt.figure(figsize=(12, 6))
-        plt.title(f"Random Forest feature importance — {strategy} imputation")
-        plt.bar(range(len(order)), model.feature_importances_[order])
-        plt.xticks(
-            range(len(order)),
-            [self.feature_names[index] for index in order],
-            rotation=90,
-        )
+        plt.title("Feature importance")
+        plt.bar(range(len(importances)), importances[indices], align="center")
+        plt.xticks(range(len(importances)), [self.feat_names[i] for i in indices], rotation=90)
         plt.tight_layout()
-        plt.savefig(f"feature_importance_{strategy}.png")
-        plt.close()
+        plt.savefig('features_importance.png')
+
+        return rf
+
+    # Splits y_new into train/test (50%), shuffles, no random seed
+    def run_split_experiment(self):
+        print("\n--- Split Experiment on y_new (50% split, no fixed seed) ---")
+        
+        X = self.y_new.drop('classk', axis=1)
+        y = self.y_new['classk']
+        
+        # Split y_new into training and test subsets (50%), after shuffling.
+        # Remove all the settings about the random seed settings.
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, shuffle=True)
+        
+        # Train Random Forest (1000 trees)
+        rf = RandomForestClassifier(n_estimators=1000) # No random_state
+        rf.fit(X_train, y_train)
+        y_pred_rf = rf.predict(X_test)
+        print("Random Forest (1000 trees) on Split Test Set:")
+        print('accuracy =', accuracy_score(y_test, y_pred_rf))
+        print(confusion_matrix(y_test, y_pred_rf))
+        
+        # 6Train CART tree classifier
+        clf = tree.DecisionTreeClassifier(criterion='entropy') # No random_state
+        clf.fit(X_train, y_train)
+        y_pred_dt = clf.predict(X_test)
+        print("CART Decision Tree on Split Test Set:")
+        print('accuracy =', accuracy_score(y_test, y_pred_dt))
+        print(confusion_matrix(y_test, y_pred_dt))
 
     def run(self):
         self.load_and_preprocess()
-        self.split_data()
+        self.regression(plotCDF=False) # Step 1 & 2 logic
+        
+        # Step 2: Get decision tree and accuracy for dataset x_new
+        clfXtrain = self.train_decision_tree(self.Xtrain, self.x_new, 'x_new')
 
-        for strategy in ('median', 'regression'):
-            X_train, X_test = self.impute(strategy)
-            decision_tree = tree.DecisionTreeClassifier(
-                criterion='entropy',
-                max_depth=5,
-                random_state=self.seed,
-            )
-            self.evaluate(
-                'Decision Tree',
-                decision_tree,
-                strategy,
-                X_train,
-                X_test,
-            )
+        # Step 3: Add a new dataset y_new (median imputation)
+        self.create_median_imputed_dataset()
+        
+        # Step 5: Random Forest (100 and 1000 trees), compare with single tree
+        # Using x_new
+        rf100 = self.train_random_forest(self.Xtrain, self.x_new, 100, 'x_new')
+        rf1000 = self.train_random_forest(self.Xtrain, self.x_new, 1000, 'x_new')
+        
+        # Using y_new (to compare imputation methods impact)
+        self.train_random_forest(self.Xtrain, self.y_new, 100, 'y_new')
+        self.train_random_forest(self.Xtrain, self.y_new, 1000, 'y_new')
+        
+        # Step 6: Split y_new experiment
+        self.run_split_experiment()
 
-            random_forest = RandomForestClassifier(
-                n_estimators=500,
-                class_weight='balanced',
-                random_state=self.seed,
-            )
-            random_forest = self.evaluate(
-                'Random Forest',
-                random_forest,
-                strategy,
-                X_train,
-                X_test,
-            )
-            self.plot_feature_importance(random_forest, strategy)
-
-        return self.results
-
-
-if __name__ == '__main__':
-    dataset_path = os.path.join(
-        os.path.dirname(__file__),
-        'data',
-        'chronic_kidney_disease.arff',
-    )
-    ChronicKidneyDiseaseLab(dataset_path).run()
+if __name__ == "__main__":
+    # Instantiate and run
+    filepath = os.path.join(os.path.dirname(__file__), "data", "chronic_kidney_disease.arff")
+    lab = ChronicKidneyDiseaseLab(filepath)
+    lab.run()

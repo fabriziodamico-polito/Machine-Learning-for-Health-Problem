@@ -1,48 +1,76 @@
-# Signal Processing - Gaussianity and Blind Source Separation
+# EEG Signal Processing — Gaussianity Tests & Blind Source Separation
 
 ## Objective
 
-Explore two foundations of biomedical signal processing with reproducible synthetic data:
+This lab covers two fundamental topics in biomedical signal processing:
 
-1. generate and test Gaussian samples with the Central Limit Theorem and Box-Muller transform;
-2. separate linearly mixed sources with FastICA and compare the result with PCA.
+1. **Gaussianity Testing**: Generate pseudo-Gaussian samples using the **Central Limit Theorem** and **Box-Muller** methods, then rigorously verify their Gaussianity through statistical tests
+2. **Blind Source Separation (BSS)**: Recover independent source signals from their linear mixtures using **FastICA**, and compare against **PCA**
 
-## Part 1: Gaussianity
+## Techniques
 
-| Method | Role |
-| --- | --- |
-| Central Limit Theorem | Approximates a Gaussian by summing uniform variables |
-| Box-Muller transform | Generates Gaussian samples directly from uniform variables |
-| Q-Q plot and CDF | Visual distribution checks |
-| t-score and excess kurtosis | Checks center and tail shape |
-| Anderson-Darling statistic | Goodness-of-fit test for normality |
-| Monte Carlo simulation | Estimates reference p-value behavior |
+### Part 1 — Gaussianity Testing
 
-## Part 2: Blind source separation
+| Method | Description |
+|--------|-------------|
+| **Central Limit Theorem (CLT)** | Sum of N uniform random variables approximates a Gaussian |
+| **Box-Muller Transform** | Exact method to generate Gaussian samples from uniform ones |
+| **Normal Probability Plot** | Q-Q plot to visually assess Gaussianity |
+| **t-Score Test** | Tests whether the sample mean matches the expected mean |
+| **Excess Kurtosis** | Measures deviation from Gaussian tail behavior (should be ≈ 0) |
+| **Anderson-Darling Test** | Powerful goodness-of-fit test for normality |
+| **p-Value Estimation** | Monte Carlo simulation (10,000 experiments) to estimate p-value curves |
 
-Three non-Gaussian waveforms and an independent Laplace-noise source are standardized and mixed through a seeded random matrix. FastICA searches for statistically independent components, while PCA provides a decorrelation baseline. Recovered components are optimally aligned before scoring to resolve permutation, sign and scale ambiguities.
+### Part 2 — Blind Source Separation
 
-```text
-Generate sources -> mix through matrix A
--> apply FastICA and PCA -> align and compare recovered components
+| Method | Description |
+|--------|-------------|
+| **FastICA** | Independent Component Analysis using deflation algorithm; maximizes non-Gaussianity |
+| **PCA** | Principal Component Analysis; finds orthogonal components (decorrelation only) |
+
+## Pipeline
+
+### Part 1
+```
+Generate Uniform Samples → Sum (CLT) or Transform (Box-Muller)
+→ Histogram vs Theoretical PDF → CDF Comparison
+→ Normal Probability Plot → t-Score, Kurtosis, Anderson-Darling
+→ Monte Carlo p-Value Estimation
 ```
 
-| Method | Aligned absolute source correlations | Mean |
-| --- | --- | ---: |
-| FastICA | `0.9994, 1.0000, 0.9997, 0.9999` | `0.9998` |
-| PCA | `0.8345, 0.7320, 0.6490, 0.9260` | `0.7854` |
+### Part 2
+```
+Generate 4 Source Signals (sin, square, sawtooth, triangular)
+→ Mix with Random Matrix A → Apply FastICA → Apply PCA
+→ Compare Recovered vs Original Signals
+→ Compare Estimated vs True Unmixing Matrix W
+```
 
-The experiment quantitatively illustrates why decorrelation alone is insufficient for separating these non-Gaussian sources. Because the inputs are synthetic, the result is a methods demonstration rather than validation on recorded EEG.
+## Key Results
 
-## Run
+- **CLT** produces increasingly Gaussian samples as N grows; N=10 already passes most tests
+- **Box-Muller** generates exact Gaussian samples (passes all tests)
+- **FastICA** successfully recovers all 4 independent sources (up to sign/permutation ambiguity)
+- **PCA** fails to separate non-orthogonal sources — it only decorrelates, not makes independent
+- The estimated unmixing matrix $\hat{W}$ closely matches the true $W = A^{-1}$
+
+## How to Run
 
 ```bash
 cd 07_eeg_signal_processing
+
+# Part 1: Gaussianity tests
 python central_limit_theorem.py
+
+# Part 2: Blind Source Separation
 python fastica_bss.py
 ```
 
+## Files
+
 | File | Description |
-| --- | --- |
-| `central_limit_theorem.py` | Gaussian generation and statistical checks |
-| `fastica_bss.py` | FastICA/PCA source-separation comparison |
+|------|-------------|
+| `central_limit_theorem.py` | CLT, Box-Muller, and statistical tests |
+| `central_limit_theorem.ipynb` | Notebook with inline visualizations |
+| `fastica_bss.py` | FastICA vs PCA for source separation |
+| `fastica_bss.ipynb` | Notebook with inline visualizations |

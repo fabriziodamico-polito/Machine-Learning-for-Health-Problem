@@ -1,26 +1,24 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import GroupShuffleSplit
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils import minimization as mymin
 
-RANDOM_SEED = 42
+matricola_seed = 306457  # Student ID (used as random seed)
 csv_path = os.path.join(os.path.dirname(__file__), "data", "parkinsons_updrs.csv")
 
 class UPDRS:
-    def __init__(self, seed=RANDOM_SEED):
+    def __init__(self, seed=matricola_seed):
         self.seed = seed
-        self.eps = 1e-8
-        self.metrics = {}
+        #self.results = {} # To store w_hat, errors, etc.
         
         # Output settings
         pd.set_option('display.precision', 3)
         plt.close('all')
 
     # Loads data and plots the covariance matrix 
-    def load_and_explore(self, plot=True):
+    def load_and_explore(self):
         # Read the dataset
         self.X = pd.read_csv(csv_path) # read the dataset; x is a Pandas dataframe
         features = list(self.X.columns) # list of features in the dataset
@@ -31,9 +29,6 @@ class UPDRS:
         print(f"Features: {len(features)}")
         #print(self.X.describe().T)
         #print(self.X.info())
-
-        if not plot:
-            return
 
         # Measure and show covariance matrix
         Xnorm = (self.X - self.X.mean()) / self.X.std() # normalized/standardized/scaled data
@@ -58,179 +53,104 @@ class UPDRS:
         plt.savefig('./UPDRS_corr_coeff.png')
         plt.draw()
 
-    # Split by patient into train/validation/test, then normalize using training data only.
-    def prepare_data(self):
-        groups = self.X['subject#'].to_numpy()
-        first_split = GroupShuffleSplit(
-            n_splits=1,
-            train_size=0.4,
-            random_state=self.seed,
-        )
-        train_idx, remaining_idx = next(first_split.split(self.X, groups=groups))
+    #% shuffle, split, normalize, drop features (in this Lab we use the motor_UPDRS)
+    def prepare_data(self, shuffle=True):
 
-        remaining = self.X.iloc[remaining_idx]
-        remaining_groups = remaining['subject#'].to_numpy()
-        second_split = GroupShuffleSplit(
-            n_splits=1,
-            train_size=1 / 3,
-            random_state=self.seed + 1,
-        )
-        val_rel_idx, test_rel_idx = next(
-            second_split.split(remaining, groups=remaining_groups)
-        )
-        val_idx = remaining_idx[val_rel_idx]
-        test_idx = remaining_idx[test_rel_idx]
+        Np, Nc = self.X.shape
 
-        X_tr = self.X.iloc[train_idx].copy()
-        X_va = self.X.iloc[val_idx].copy()
-        X_te = self.X.iloc[test_idx].copy()
+        # 1. Shuffle:  the original dataset is ordered by patients ID and contain different test for every patients,
+        # shuffling it we avoid to learn to weel about a single patients (overfitting)
+        Xsh = self.X.sample(frac=1, replace=False, random_state=self.seed, axis=0, ignore_index=True)
 
-        self.train_subjects = set(X_tr['subject#'].unique())
-        self.validation_subjects = set(X_va['subject#'].unique())
-        self.test_subjects = set(X_te['subject#'].unique())
-        if (
-            self.train_subjects & self.validation_subjects
-            or self.train_subjects & self.test_subjects
-            or self.validation_subjects & self.test_subjects
-        ):
-            raise RuntimeError("Patient leakage detected across data partitions")
+        # 2. Split into training, validation and test set
+        Ntr = int(Np * 0.4) # number of training points
+        Nva = int(Np * 0.2) # number of validation points
+        Nte = Np - Ntr - Nva # number of test points
 
-        print(
-            "Patient-level split: "
-            f"{len(self.train_subjects)} train / "
-            f"{len(self.validation_subjects)} validation / "
-            f"{len(self.test_subjects)} test subjects (overlap: 0)"
-        )
-
-        # Evaluate normalization parameters from training data only.
-        self.mm = X_tr.mean()
-        self.ss = X_tr.std()
+        # 3. evaluate mean and st.dev. for Training Data Only
+        X_tr = Xsh[0:Ntr] # dataframe that contains only the training data
+        self.mm = X_tr.mean() # mean (series) of each feature
+        self.ss = X_tr.std() # standard deviation (series) of each feature
         self.my = self.mm['total_UPDRS'] # mean of regressand/total UPDRS (for later use)
         self.sy = self.ss['total_UPDRS'] # st.dev of regressand/total UPDRS (for later use)
 
-        # Exclude identifiers, collinear measures and motor_UPDRS, which is a
-        # closely related clinical score and would make total_UPDRS prediction
-        # unrealistically easy for a voice-biomarker experiment.
-        drop_list = [
-            'total_UPDRS',
-            'motor_UPDRS',
-            'subject#',
-            'test_time',
-            'Jitter:DDP',
-            'Shimmer:DDA',
-        ]
-        self.regressors = [column for column in self.X.columns if column not in drop_list]
+        # 4. Normalize (Scaled training and test datasets)
+        Xsh_norm = (Xsh - self.mm) / self.ss # normalized data
+        ysh_norm = Xsh_norm['total_UPDRS']
+        
+        # 5. Drop Features 
+        Xsh_norm = Xsh_norm.drop(['total_UPDRS', 'subject#'], axis=1) # regressors only
+        Xsh_norm = Xsh_norm.drop(['Jitter:DDP', 'Shimmer:DDA'], axis=1) # drop Jitter and Shimmer to avoid collinearity
+        if 'test_time' in Xsh_norm.columns:
+            Xsh_norm = Xsh_norm.drop(['test_time'], axis=1)
+        
+        self.regressors = list(Xsh_norm.columns)
         self.Nf = len(self.regressors) # number of regressors
         print("After dropping, the new regressors are: ", len(self.regressors))
         print(self.regressors)
+        
+        # DataFrame -> Numpy
+        Xsh_norm = Xsh_norm.values # from dataframe to Ndarray
+        ysh_norm = ysh_norm.values # from dataframe to Ndarray
 
-        self.X_tr_norm = ((X_tr[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
-        self.X_va_norm = ((X_va[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
-        self.X_te_norm = ((X_te[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
-        self.y_tr_norm = ((X_tr['total_UPDRS'] - self.my) / self.sy).to_numpy()
-        self.y_va_norm = ((X_va['total_UPDRS'] - self.my) / self.sy).to_numpy()
-        self.y_te_norm = ((X_te['total_UPDRS'] - self.my) / self.sy).to_numpy()
+        # split numpy
+        self.X_tr_norm = Xsh_norm[0:Ntr] # regressors for training phase
+        self.X_va_norm = Xsh_norm[Ntr:Ntr + Nva] # regressor for validation phase
+        self.X_te_norm = Xsh_norm[Ntr + Nva:] # regressors for test phase
+        
+        self.y_tr_norm = ysh_norm[0:Ntr] # regressand for training phase
+        self.y_va_norm = ysh_norm[Ntr: Ntr + Nva] # regressand for validation phase
+        self.y_te_norm = ysh_norm[Ntr + Nva:] # regressand for test phase
 
         print('The training set shape is {}, The validation set shape is {}, The test set shape is {}'.format(self.X_tr_norm.shape, self.X_va_norm.shape, self.X_te_norm.shape))
     
     #% Find optimal K
     def euclidean_distance(self, x0, X):
         return np.sum((X - x0) ** 2, axis=1)
-
-    def local_prediction(
-        self,
-        x,
-        K,
-        X_train=None,
-        y_train=None,
-        exclude_index=None,
-    ):
-        """Fit a local ridge model with an unpenalized intercept."""
-        if X_train is None:
-            X_train = self.X_tr_norm
-        if y_train is None:
-            y_train = self.y_tr_norm
-
-        distances = self.euclidean_distance(x, X_train)
-        if exclude_index is not None:
-            distances[exclude_index] = np.inf
-        neighbor_idx = np.argsort(distances)[:K]
-
-        local_X = np.column_stack(
-            [np.ones(len(neighbor_idx)), X_train[neighbor_idx, :]]
-        )
-        local_y = y_train[neighbor_idx].reshape(-1, 1)
-        ridge = np.eye(local_X.shape[1])
-        ridge[0, 0] = 0.0
-        weights = np.linalg.solve(
-            local_X.T @ local_X + self.eps * ridge,
-            local_X.T @ local_y,
-        )
-        x_with_intercept = np.concatenate(([1.0], x))
-        return float((x_with_intercept @ weights).item())
     
 
-    def fixed_k(self, K, eps, verbose=True):
-        self.eps = eps
+    def fixed_k(self, K, eps):
+        self.eps = 1e-8
         n = self.X_va_norm.shape[0]
         y_hat_va_norm = np.zeros(n, dtype=float)
         for i in range(n):
-            y_hat_va_norm[i] = self.local_prediction(
-                self.X_va_norm[i, :],
-                K,
-            )
+            x = self.X_va_norm[i, :]                       
+            d = self.euclidean_distance(x, self.X_tr_norm)
+            idx = np.argsort(d)[:K]
+            A = self.X_tr_norm[idx, :]                     # (K, F)
+            y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
+            F = A.shape[1]
+            I = np.eye(F)
+            w_hat = np.linalg.inv(A.T @ A + eps * I) @ (A.T @ y)   # (F,1) eps is a term add to be sure that the matrix will be always inverted (ridge regression)
+            
+            y_hat_va_norm[i] = (x @ w_hat).item()
             
         mse_val = float(np.mean((self.y_va_norm - y_hat_va_norm) ** 2))
-        if verbose:
-            print(
-                f"[K={K}, eps={eps:g}] Validation MSE "
-                f"(normalized): {mse_val:.6f}"
-            )
+        print(f"[K={K}] Validation MSE (normalized): {mse_val:.6f}")
         return mse_val
 
-    def optimized_k(self, k_min, k_max, step, eps_values=None):
-        if eps_values is None:
-            eps_values = (1e-6, 1e-4, 1e-2, 1e-1, 1.0)
+    def optimized_k(self, k_min, k_max, step):
         K_values = np.arange(int(k_min), int(k_max) + 1, int(step), dtype=int)
-        mse_values = np.empty((len(eps_values), len(K_values)), dtype=float)
-        for eps_index, eps in enumerate(eps_values):
-            for k_index, k in enumerate(K_values):
-                mse_values[eps_index, k_index] = self.fixed_k(
-                    K=k,
-                    eps=eps,
-                    verbose=False,
-                )
-
-        best_eps_index, best_k_index = np.unravel_index(
-            np.argmin(mse_values),
-            mse_values.shape,
-        )
-        self.K_opt = int(K_values[best_k_index])
-        self.eps = float(eps_values[best_eps_index])
-        mse_min = float(mse_values[best_eps_index, best_k_index])
+        mse_values = np.empty(K_values.shape[0], dtype=float)
+        for i, k in enumerate(K_values):
+            mse_values[i] = self.fixed_k(K=k, eps=1e-8)
+    
+        best_idx = int(np.argmin(mse_values))
+        self.K_opt = int(K_values[best_idx])
+        mse_min = float(mse_values[best_idx])
     
         # plot opzionale
         plt.figure()
-        for eps_index, eps in enumerate(eps_values):
-            plt.plot(
-                K_values,
-                mse_values[eps_index],
-                '-o',
-                label=f'eps={eps:g}',
-            )
+        plt.plot(K_values, mse_values, '-o')
         plt.xlabel('K')
         plt.ylabel('Validation MSE (normalized)')
-        plt.title('KNN-LLS validation search')
+        plt.title('MSE vs K (validation)')
         plt.grid(True)
-        plt.legend()
         plt.tight_layout()
         plt.savefig('./K_optimization.png')
         plt.draw()
     
-        print(
-            f"[optimized_k] Best K = {self.K_opt}, eps = {self.eps:g} "
-            f"| MSE_val (norm) = {mse_min:.6f}"
-        )
+        print(f"[optimized_k] Best K = {self.K_opt}  |  MSE_val (norm) = {mse_min:.6f}")
 
     #% Test phase
     def test(self):
@@ -241,10 +161,15 @@ class UPDRS:
         n = self.X_te_norm.shape[0]
         y_hat_te_norm = np.zeros(n, dtype=float)
         for i in range(n):
-            y_hat_te_norm[i] = self.local_prediction(
-                self.X_te_norm[i, :],
-                self.K_opt,
-            )
+            x = self.X_te_norm[i, :]                       
+            d = self.euclidean_distance(x, self.X_tr_norm)
+            idx = np.argsort(d)[:self.K_opt]
+            A = self.X_tr_norm[idx, :]                     # (K, F)
+            y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
+            F = A.shape[1]
+            I = np.eye(F)
+            w_hat = np.linalg.inv(A.T @ A + self.eps * I) @ (A.T @ y)   # (F,1)
+            y_hat_te_norm[i] = (x @ w_hat).item()
         
         # De-normalization
         sy = self.sy
@@ -257,18 +182,13 @@ class UPDRS:
         self.plot_results(y_te, y_hat_knn, e_knn, "KNN-LLS (Test)")
         
         # --- Standard LLS on Test Set ---
-        X_train = np.column_stack(
-            [np.ones(self.X_tr_norm.shape[0]), self.X_tr_norm]
-        )
+        X_train = self.X_tr_norm
         y_train = self.y_tr_norm.reshape(-1, 1)
         
         solver = mymin.SolveLLS(y=y_train, A=X_train)
         solver.run()
         w_lls = solver.what
-        X_test = np.column_stack(
-            [np.ones(self.X_te_norm.shape[0]), self.X_te_norm]
-        )
-        y_hat_lls_norm = (X_test @ w_lls).flatten()
+        y_hat_lls_norm = (self.X_te_norm @ w_lls).flatten()
         
         # De-normalization
         y_hat_lls = y_hat_lls_norm * sy + my
@@ -280,11 +200,15 @@ class UPDRS:
         n_tr = self.X_tr_norm.shape[0]
         y_hat_tr_knn_norm = np.zeros(n_tr, dtype=float)
         for i in range(n_tr):
-            y_hat_tr_knn_norm[i] = self.local_prediction(
-                self.X_tr_norm[i, :],
-                self.K_opt,
-                exclude_index=i,
-            )
+            x = self.X_tr_norm[i, :]                       
+            d = self.euclidean_distance(x, self.X_tr_norm)
+            idx = np.argsort(d)[:self.K_opt]
+            A = self.X_tr_norm[idx, :]                     # (K, F)
+            y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
+            F = A.shape[1]
+            I = np.eye(F)
+            w_hat = np.linalg.inv(A.T @ A + self.eps * I) @ (A.T @ y)   # (F,1)
+            y_hat_tr_knn_norm[i] = (x @ w_hat).item()
             
         y_hat_tr_knn = y_hat_tr_knn_norm * sy + my
         y_tr = self.y_tr_norm * sy + my
@@ -297,13 +221,6 @@ class UPDRS:
         mse = np.mean(e**2)
         R2 = 1 - np.sum(e**2) / np.sum((y_true - np.mean(y_true))**2)
         corr = np.corrcoef(y_true, y_pred)[0, 1]
-        self.metrics[label] = {
-            'mean_error': float(mean_e),
-            'std_error': float(std_e),
-            'mse': float(mse),
-            'r2': float(R2),
-            'correlation': float(corr),
-        }
         
         print(f"\nMetrics for {label}:")
         print(f"Mean error: {mean_e:.4f}")
@@ -335,6 +252,7 @@ class UPDRS:
 if __name__ == "__main__":
     lab = UPDRS()
     lab.load_and_explore()
-    lab.prepare_data()
-    lab.optimized_k(20, 150, 10)
+    lab.prepare_data(shuffle=True)
+    lab.fixed_k(20, 1e-8)
+    lab.optimized_k(17, 100, 3)
     lab.test()

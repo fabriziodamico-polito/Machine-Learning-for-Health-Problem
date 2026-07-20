@@ -1,191 +1,144 @@
-"""Evaluate two serological measurements against a binary swab reference."""
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import sklearn.cluster as sk
+from sklearn import metrics
+from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.preprocessing import MinMaxScaler
 
 import os
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from sklearn import metrics
-from sklearn.cluster import DBSCAN
-from sklearn.metrics import roc_auc_score
-from sklearn.preprocessing import MinMaxScaler
+plt.rcParams["font.family"] = "Times New Roman"
+plt.close('all')
 
-
-RANDOM_SEED = 42
-
-
-class Covid:
+class Covid():
     def __init__(self):
-        self.data = os.path.join(
-            os.path.dirname(__file__),
-            'data',
-            'covid_serological_results.csv',
-        )
-        self.results = {}
+        self.data = os.path.join(os.path.dirname(__file__), "data", "covid_serological_results.csv")
 
-    def DataAnalysis(self, test_name):
-        """Prepare all known-label observations and a filtered sensitivity set."""
-        self.Test = test_name
-        data = pd.read_csv(self.data)
-        data = data[data.COVID_swab_res != 1].copy()
-        data.loc[data.COVID_swab_res == 2, 'COVID_swab_res'] = 1
-
-        value_column = {
-            'Test1': 'IgG_Test1_titre',
-            'Test2': 'IgG_Test2_titre',
-        }.get(test_name)
-        if value_column is None:
-            raise ValueError(f'Unknown test name: {test_name}')
-
-        self.swab = data.COVID_swab_res.to_numpy(dtype=int)
-        self.Test_value = data[value_column].to_numpy(dtype=float)
-
-        # DBSCAN is retained as a sensitivity analysis, not as the primary
-        # reported cohort. This prevents an arbitrary outlier rule from being
-        # hidden inside the headline diagnostic result.
-        measurement_columns = ['IgG_Test1_titre', 'IgG_Test2_titre']
-        normalized = MinMaxScaler().fit_transform(data[measurement_columns])
-        inlier_mask = DBSCAN(eps=0.05, min_samples=5).fit_predict(normalized) != -1
-        self.filtered_swab = self.swab[inlier_mask]
-        self.filtered_values = self.Test_value[inlier_mask]
-
-        print(f'{self.Test}: primary cohort contains {len(data)} known-label samples')
-        print(
-            f'{self.Test}: DBSCAN sensitivity cohort retains '
-            f'{int(inlier_mask.sum())} samples'
-        )
+    def DataAnalysis(self,Test):
+        self.Test = Test
+        # remove the unceratin swab results and set 1: positive / 0: negative
+        xx = pd.read_csv(self.data)
+        xx = xx[xx.COVID_swab_res!=1] # remove unclear results
+        xx.COVID_swab_res[xx.COVID_swab_res == 2] = 1 # set swab result from 2 to 1 for ill patients
+        xx.loc[xx.COVID_swab_res==2,"COVID_swab_res"] = 1
+        # data Analysis
+        #xx.describe()
+        #xx.info()
+        #pd.plotting.scatter_matrix(xx, alpha=0.2)
+        #xx.hist()
+        # DBSCAN to remove outliers
+        scaler = MinMaxScaler()
+        X = xx[['IgG_Test1_titre', 'IgG_Test2_titre']]
+        X_norm = scaler.fit_transform(X)
+        db = sk.DBSCAN(eps=0.05, min_samples=5)
+        labels = db.fit_predict(X_norm)
+        xx = xx[labels != -1]
+        # values of the Test 
+        self.swab = xx.COVID_swab_res.values # results from swab: 0 = no illness, 1 = illness
+        if Test == "Test1":
+            self.Test_value = xx.IgG_Test1_titre.values
+        elif Test == "Test2":
+            self.Test_value = xx.IgG_Test2_titre.values
 
     def Sensitivity_Specificity(self):
-        """Compute internally consistent ROC operating points."""
-        fpr, tpr, thresholds = metrics.roc_curve(
-            self.swab,
-            self.Test_value,
-            pos_label=1,
-            drop_intermediate=False,
-        )
-        self.FPR = fpr
-        self.sensitivity = tpr
-        self.specificity = 1 - fpr
-        self.thresholds = thresholds
+        x = self.Test_value
+        y = self.swab
 
-        finite = np.isfinite(thresholds)
-        order = np.argsort(thresholds[finite])
+        # count number of ill and healthy patients
+        x0 = x[y==0] # test results for healthy patients
+        x1 = x[y==1] # test results for ill patients
+        Np = np.sum(self.swab==1) # number of ill patients
+        Nn = np.sum(self.swab==0) # number of healthy patients
+
+        # Thresholds: sorted values of the test + 0
+        self.thresholds = np.unique(np.append(x, 0)) #unique: remove duplicates, sort in ascending order
+        
+        self.sensitivity = []
+        self.specificity = []
+
+        for thresh in self.thresholds: 
+            n1 = np.sum(x1 > thresh) # number of true positives for the given thresh
+            sens = n1/Np # sensitivity
+            self.sensitivity.append(sens)
+            n0 = np.sum(x0 < thresh) # number of true negatives
+            spec = n0/Nn # specificity
+            self.specificity.append(spec)
+    
         plt.figure()
-        plt.plot(
-            thresholds[finite][order],
-            tpr[finite][order],
-            label='Sensitivity',
-        )
-        plt.plot(
-            thresholds[finite][order],
-            (1 - fpr[finite])[order],
-            label='Specificity',
-        )
-        plt.xlabel('Threshold')
-        plt.ylabel('Rate')
-        plt.title(self.Test)
+        plt.plot(self.thresholds, self.sensitivity, label='$P(T_p|D)$')
+        plt.plot(self.thresholds, self.specificity, label='$P(T_n|H)$')
         plt.grid()
         plt.legend()
+        plt.title(self.Test)
+        plt.show()
+        plt.figure()
 
     def ROC(self):
-        """Report primary and outlier-filtered AUC values."""
-        auc = roc_auc_score(self.swab, self.Test_value)
-        auc_manual = np.trapezoid(self.sensitivity, self.FPR)
-        filtered_auc = roc_auc_score(self.filtered_swab, self.filtered_values)
-        ci_low, ci_high = self.bootstrap_auc_ci()
+        self.FPR = 1 - np.array(self.specificity)
 
-        print(f'Manual AUC: {auc_manual:.4f}')
-        print(f'Primary AUC: {auc:.4f} (stratified bootstrap 95% CI: {ci_low:.4f}-{ci_high:.4f})')
-        print(f'DBSCAN-filtered sensitivity AUC: {filtered_auc:.4f}')
-
-        self.results[self.Test] = {
-            'sample_count': len(self.swab),
-            'filtered_sample_count': len(self.filtered_swab),
-            'auc': float(auc),
-            'auc_manual': float(auc_manual),
-            'filtered_auc': float(filtered_auc),
-            'ci_low': float(ci_low),
-            'ci_high': float(ci_high),
-        }
-
+        # plot ROC
         plt.figure()
-        plt.plot(self.FPR, self.sensitivity, label=f'ROC (AUC={auc:.3f})')
-        plt.plot([0, 1], [0, 1], 'k--', label='Chance')
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title(f'ROC curve - {self.Test}')
-        plt.grid()
+        plt.plot(self.FPR, self.sensitivity, label = 'ROC curve')
         plt.legend()
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate / Specificity')
+        plt.grid()
+        plt.title('ROC curve')
+        plt.show()
 
-    def bootstrap_auc_ci(self, n_bootstrap=2000):
-        """Stratified bootstrap interval conditional on the primary cohort."""
-        rng = np.random.default_rng(RANDOM_SEED)
-        positive_values = self.Test_value[self.swab == 1]
-        negative_values = self.Test_value[self.swab == 0]
-        scores = np.empty(n_bootstrap, dtype=float)
-
-        labels = np.concatenate(
-            [np.ones(len(positive_values)), np.zeros(len(negative_values))]
-        )
-        for index in range(n_bootstrap):
-            values = np.concatenate(
-                [
-                    rng.choice(positive_values, len(positive_values), replace=True),
-                    rng.choice(negative_values, len(negative_values), replace=True),
-                ]
-            )
-            scores[index] = roc_auc_score(labels, values)
-        return tuple(np.percentile(scores, [2.5, 97.5]))
+        # Manually calculation of Area Under the Curve (AUC)
+        # Sort FPR in ascending order for integration
+        sorted_index = np.argsort(self.FPR)
+        fpr_sorted = self.FPR[sorted_index]
+        tpr_sorted = np.array(self.sensitivity)[sorted_index]
+        AUC_manual = np.trapezoid(tpr_sorted, fpr_sorted)
+        print('Manual AUC:', AUC_manual)
+        
+        # AUC sklearn
+        fpr, tpr, thresh = metrics.roc_curve(self.swab, self.Test_value, pos_label=1)
+        AUC = roc_auc_score(self.swab, self.Test_value)
+        print('Sklearn AUC:', AUC)
 
     def SetThreshold(self):
-        """Choose an exploratory threshold with Youden's J statistic."""
-        youden = self.sensitivity - self.FPR
-        valid_indices = np.flatnonzero(np.isfinite(self.thresholds))
-        best_index = valid_indices[np.argmax(youden[valid_indices])]
-        threshold = float(self.thresholds[best_index])
-        sensitivity = float(self.sensitivity[best_index])
-        specificity = float(self.specificity[best_index])
-
-        self.results[self.Test].update(
-            {
-                'threshold': threshold,
-                'sensitivity': sensitivity,
-                'specificity': specificity,
-            }
-        )
-        print(
-            f'Exploratory Youden threshold: {threshold:.3f} '
-            f'(sensitivity={sensitivity:.3f}, specificity={specificity:.3f})'
-        )
-
+        # Youden’s J statistic
+        j = np.array(self.sensitivity) - (1 - np.array(self.specificity))
         plt.figure()
-        plt.plot(self.FPR, self.sensitivity, label='ROC curve')
-        plt.scatter(
-            self.FPR[best_index],
-            self.sensitivity[best_index],
-            color='red',
-            label='Youden operating point',
-        )
-        plt.grid()
+        plt.plot(self.thresholds, j, label = 'TPR - FPR (Youden’s J statistic)')
         plt.legend()
-        return threshold, sensitivity, specificity
+        plt.grid()
+        plt.show()
 
+        # get the optimal threshold
+        max_j = np.argmax(j)
+        optimal_threshold = self.thresholds[max_j]
+        print('Optimal threshold:', optimal_threshold)
 
-if __name__ == '__main__':
-    analysis = Covid()
-    for test_name in ('Test1', 'Test2'):
-        print(f'\n--- {test_name} ---')
-        analysis.DataAnalysis(test_name)
-        analysis.Sensitivity_Specificity()
-        analysis.ROC()
-        analysis.SetThreshold()
+        # plot the ROC with a poin in optimal threshold
+        plt.figure()
+        plt.plot(self.FPR, self.sensitivity, label = 'ROC curve')
+        plt.scatter(self.FPR[max_j], self.sensitivity[max_j], color = 'red', label = 'Optimal threshold')
+        plt.legend()
+        plt.grid()
+        plt.show()
+        
+        return optimal_threshold, self.sensitivity[max_j], self.specificity[max_j]
 
-    print('\n--- Comparison ---')
-    for test_name, result in analysis.results.items():
-        print(
-            f"{test_name}: AUC={result['auc']:.3f}, "
-            f"threshold={result['threshold']:.3f}, "
-            f"sensitivity={result['sensitivity']:.3f}, "
-            f"specificity={result['specificity']:.3f}"
-        )
-    plt.show()
+if __name__ == "__main__":
+    instance = Covid()
+    
+    print("--- Test 2 ---")
+    instance.DataAnalysis("Test2")
+    instance.Sensitivity_Specificity()
+    instance.ROC()
+    opt_th2, sens2, spec2 = instance.SetThreshold()
+
+    print("--- Test 1 ---")
+    instance.DataAnalysis("Test1")
+    instance.Sensitivity_Specificity()
+    instance.ROC()
+    opt_th1, sens1, spec1 = instance.SetThreshold()
+
+    print("\n--- Comparison ---")
+    print(f"Test 1: Optimal Threshold = {opt_th1:.3f}, Sensitivity = {sens1:.3f}, Specificity = {spec1:.3f}")
+    print(f"Test 2: Optimal Threshold = {opt_th2:.3f}, Sensitivity = {sens2:.3f}, Specificity = {spec2:.3f}")

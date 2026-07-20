@@ -14,7 +14,6 @@ build/
 # Virtual Environments
 # ==========================
 .venv/
-.review-deps/
 venv/
 ENV/
 env/
@@ -41,9 +40,6 @@ desktop.ini
 # Jupyter Notebook
 # ==========================
 .ipynb_checkpoints/
-.pytest_cache/
-.coverage
-htmlcov/
 
 # ==========================
 # Course Materials (Copyright)
