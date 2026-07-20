@@ -21,23 +21,23 @@ The 990-row repository copy is a subset of the 5,875-recording UCI dataset. Its 
 ```text
 Split subjects into train / validation / test (16 / 8 / 18)
 -> fit normalization on training subjects
--> choose K on validation subjects
+-> choose K and ridge strength on validation subjects
 -> evaluate KNN-LLS and global LLS on untouched test subjects
 ```
 
 - Patient groups, rather than individual recordings, define every split.
-- A small ridge term stabilizes each local least-squares system.
+- Every local model includes an intercept; a ridge term stabilizes its slopes.
 - `motor_UPDRS`, identifiers and collinear derived measures are excluded.
-- The validation set selects K; the test set is used only for final evaluation.
+- The validation set selects `K=20` and ridge strength `1.0`; the test set is used only for final evaluation.
 
 ## Verified results
 
 | Model | Test MSE | Test R-squared |
 | --- | ---: | ---: |
-| KNN-LLS | 332.46 | -1.65 |
-| Global LLS | 246.54 | -0.97 |
+| KNN-LLS | 210.42 | -0.68 |
+| Global LLS | 244.94 | -0.95 |
 
-KNN-LLS fits the training observations more closely (training R-squared `0.80`) but performs worse than global LLS on unseen patients. The gap is evidence that local similarity among repeated recordings does not automatically translate into patient-level generalization. Reporting that limitation is more informative than preserving the high scores produced by a leaked row-level split.
+KNN-LLS reduces test MSE relative to global LLS on this split, but both test R-squared values remain negative. The local model therefore improves this baseline without becoming a useful unseen-patient predictor. Because only 42 subjects are available, the comparison is evidence for this deterministic split rather than a general conclusion about KNN.
 
 ## Run
 

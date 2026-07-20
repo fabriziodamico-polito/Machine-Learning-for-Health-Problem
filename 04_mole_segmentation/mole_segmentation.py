@@ -22,27 +22,26 @@ class Moles():
         ifile = self.files.index(self.image_title) # title of the file to be analyzed
         filein = self.files[ifile] # file to be analyzed (low_risk, medium_risk or melanoma)
         print(f"the image to be analyzed is {filein}")
-        self.im_or = mpimg.imread(self.folderpath + filein) 
+        self.im_or = mpimg.imread(os.path.join(self.folderpath, filein))
         self.gray_image = np.mean(self.im_or, axis = 2).astype(np.uint8) # convert to grayscale
         self.N1,self.N2,self.N3 = self.im_or.shape # note: N3 is 3, the number of elementary colors, i.e. red, green, blue
         self.N1,self.N2 = self.gray_image.shape
         # im_or is Ndarray N1 x N2 x 3 unint8 (integers from 0 to 255)
         # gray_image is an Ndaaray N1 x N2 unint8 (integers from 0 to 255)
-        # plot the images, to check them:
-        plt.figure()
-        plt.imshow(self.im_or,interpolation=None)
-        plt.title('original image')
-        plt.figure()
-        plt.imshow(self.gray_image, cmap='gray', vmin=0, vmax=255, interpolation=None)
-        plt.title('gray image')
-        plt.show()
+        if self.plotfig:
+            plt.figure()
+            plt.imshow(self.im_or,interpolation=None)
+            plt.title('original image')
+            plt.figure()
+            plt.imshow(self.gray_image, cmap='gray', vmin=0, vmax=255, interpolation=None)
+            plt.title('gray image')
 
     def K_means(self):
         ## Get a simplified image with only Ncluster colors
         
         # instantiate the object K-means:
         Ncluster = 3 # number of clusters/quantized colors we want to have in the simpified image
-        self.kmeans = KMeans(n_clusters = Ncluster, random_state = 0) # instantiate the object K-means
+        self.kmeans = KMeans(n_clusters=Ncluster, n_init=10, random_state=0)
         im_1D = self.gray_image.reshape((self.N1*self.N2,1)) 
         self.kmeans.fit(im_1D) # run K-means on the colors of the gray image (i.e. on the uint8 values):
 
@@ -144,10 +143,10 @@ class Moles():
         if np.isnan(margin):
             print("SET AN APPROPRIATE VALUE FOR margin!")
             sys.exit()
-        min_x = np.min(self.true_mole_pos[:,0])-margin
-        max_x = np.max(self.true_mole_pos[:,0])+margin
-        min_y = np.min(self.true_mole_pos[:,1])-margin
-        max_y = np.max(self.true_mole_pos[:,1])+margin
+        min_x = max(0, int(np.min(self.true_mole_pos[:, 0])) - margin)
+        max_x = min(self.N1, int(np.max(self.true_mole_pos[:, 0])) + margin + 1)
+        min_y = max(0, int(np.min(self.true_mole_pos[:, 1])) - margin)
+        max_y = min(self.N2, int(np.max(self.true_mole_pos[:, 1])) + margin + 1)
         self.im_cropped_gray_red = self.im_only_mole_gray[min_x:max_x,min_y:max_y]
         self.im_cropped_col = self.im_or[min_x:max_x,min_y:max_y,:]
         self.im_cropped_mole_pos = self.im_mole_pos[min_x:max_x,min_y:max_y]
@@ -217,21 +216,27 @@ class Moles():
         max_val = np.max(border)
         if max_val > 0:
             border = border / max_val * 255
+        self.border_image = border
         
         if np.isnan(border).any():
             print("IMPLEMENT FILTERING WITH SOBEL FILTERS AND FIND THE BORDER")
             sys.exit()
-        plt.figure()
-        plt.imshow(self.im_cropped_col, interpolation='none')
-        plt.imshow(border,cmap='gray', interpolation='none', alpha=0.2)
+        if self.plotfig:
+            plt.figure()
+            plt.imshow(self.im_cropped_col, interpolation='none')
+            plt.imshow(border,cmap='gray', interpolation='none', alpha=0.2)
+        return border
+
+    def run(self):
+        self.greyscale()
+        self.K_means()
+        self.DBSCAN()
+        self.crop()
+        self.smooth()
+        self.sobel_filters()
+        return self.border()
 
 if __name__ == '__main__':
     mole = Moles(plotfig = True, image_title = 'medium_risk_4.jpg' )
-    mole.greyscale()
-    mole.K_means()
-    mole.DBSCAN()
-    mole.crop()
-    mole.smooth()
-    mole.sobel_filters()
-    mole.border()
+    mole.run()
     plt.show()

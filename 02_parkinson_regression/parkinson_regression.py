@@ -86,7 +86,13 @@ class ParkinsonUPDRS:
         self.my = self.mm['total_UPDRS']
         self.sy = self.ss['total_UPDRS']
 
-        drop_list = ['total_UPDRS', 'subject#', 'Jitter:DDP', 'Shimmer:DDA']
+        drop_list = [
+            'total_UPDRS',
+            'subject#',
+            'test_time',
+            'Jitter:DDP',
+            'Shimmer:DDA',
+        ]
         if not include_motor:
             drop_list.append('motor_UPDRS')
         print(f"Motor UPDRS: {'INCLUDED' if include_motor else 'EXCLUDED'}")

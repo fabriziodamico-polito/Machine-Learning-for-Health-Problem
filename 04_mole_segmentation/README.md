@@ -27,7 +27,9 @@ RGB image -> grayscale -> K-Means with three intensity clusters
 
 ## Interpretation and limitations
 
-The output is a qualitative candidate segmentation. The repository contains no expert reference masks, so accuracy, sensitivity and border error cannot be measured. Hair, rulers, off-center lesions, uneven illumination and multiple dark regions can break the center-and-intensity heuristics. The pipeline is educational and must not be used for melanoma screening or diagnosis.
+The default run processes `medium_risk_4.jpg`; an automated smoke test verifies that the pipeline returns a finite, non-empty border and clips its crop to the image bounds. This is a software-validity check, not a segmentation-accuracy result.
+
+The repository contains no expert reference masks, so Dice, IoU and border error cannot be measured. Hair, rulers, off-center lesions, uneven illumination and multiple dark regions can break the center-and-intensity heuristics. The pipeline is educational and must not be used for melanoma screening or diagnosis.
 
 ## Run
 

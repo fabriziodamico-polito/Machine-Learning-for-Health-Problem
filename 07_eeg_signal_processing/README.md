@@ -20,14 +20,19 @@ Explore two foundations of biomedical signal processing with reproducible synthe
 
 ## Part 2: Blind source separation
 
-Four synthetic waveforms are mixed through a random matrix. FastICA searches for statistically independent components, while PCA provides a decorrelation baseline. Recovered ICA components can differ from their sources in order, sign and scale; these are inherent ambiguities, not necessarily errors.
+Three non-Gaussian waveforms and an independent Laplace-noise source are standardized and mixed through a seeded random matrix. FastICA searches for statistically independent components, while PCA provides a decorrelation baseline. Recovered components are optimally aligned before scoring to resolve permutation, sign and scale ambiguities.
 
 ```text
 Generate sources -> mix through matrix A
 -> apply FastICA and PCA -> align and compare recovered components
 ```
 
-The experiment illustrates why decorrelation alone is insufficient for separating non-Gaussian sources. Because the inputs are synthetic, the result is a methods demonstration rather than validation on recorded EEG.
+| Method | Aligned absolute source correlations | Mean |
+| --- | --- | ---: |
+| FastICA | `0.9994, 1.0000, 0.9997, 0.9999` | `0.9998` |
+| PCA | `0.8345, 0.7320, 0.6490, 0.9260` | `0.7854` |
+
+The experiment quantitatively illustrates why decorrelation alone is insufficient for separating these non-Gaussian sources. Because the inputs are synthetic, the result is a methods demonstration rather than validation on recorded EEG.
 
 ## Run
 

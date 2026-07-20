@@ -29,6 +29,7 @@ Load data -> split by subject (21 train / 21 test)
 
 - A subject's repeated recordings remain in exactly one partition.
 - `motor_UPDRS` is excluded because it is a closely related clinical score and would act as a target proxy.
+- `test_time` is excluded so the experiment is consistent with a voice-biomarker prediction task.
 - Normalization statistics are learned from the training partition only.
 - A fixed seed makes the experiment reproducible.
 
@@ -36,8 +37,8 @@ Load data -> split by subject (21 train / 21 test)
 
 | Model | Test MSE | Test R-squared | Pearson correlation |
 | --- | ---: | ---: | ---: |
-| Linear Least Squares | 251.67 | -1.29 | 0.07 |
-| Steepest Descent | 242.31 | -1.20 | 0.06 |
+| Linear Least Squares | 254.86 | -1.32 | 0.06 |
+| Steepest Descent | 248.91 | -1.26 | 0.06 |
 
 The two solvers reach similar solutions, but neither generalizes well to unseen subjects. The negative test R-squared means that, on this split, both models perform worse than predicting the test-set mean. This is a useful result: a row-level random split would mix recordings from the same patients and make performance look substantially more optimistic.
 

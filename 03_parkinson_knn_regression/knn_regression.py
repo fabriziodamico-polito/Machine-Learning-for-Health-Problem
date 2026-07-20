@@ -12,7 +12,8 @@ csv_path = os.path.join(os.path.dirname(__file__), "data", "parkinsons_updrs.csv
 class UPDRS:
     def __init__(self, seed=RANDOM_SEED):
         self.seed = seed
-        #self.results = {} # To store w_hat, errors, etc.
+        self.eps = 1e-8
+        self.metrics = {}
         
         # Output settings
         pd.set_option('display.precision', 3)
@@ -135,50 +136,101 @@ class UPDRS:
     #% Find optimal K
     def euclidean_distance(self, x0, X):
         return np.sum((X - x0) ** 2, axis=1)
+
+    def local_prediction(
+        self,
+        x,
+        K,
+        X_train=None,
+        y_train=None,
+        exclude_index=None,
+    ):
+        """Fit a local ridge model with an unpenalized intercept."""
+        if X_train is None:
+            X_train = self.X_tr_norm
+        if y_train is None:
+            y_train = self.y_tr_norm
+
+        distances = self.euclidean_distance(x, X_train)
+        if exclude_index is not None:
+            distances[exclude_index] = np.inf
+        neighbor_idx = np.argsort(distances)[:K]
+
+        local_X = np.column_stack(
+            [np.ones(len(neighbor_idx)), X_train[neighbor_idx, :]]
+        )
+        local_y = y_train[neighbor_idx].reshape(-1, 1)
+        ridge = np.eye(local_X.shape[1])
+        ridge[0, 0] = 0.0
+        weights = np.linalg.solve(
+            local_X.T @ local_X + self.eps * ridge,
+            local_X.T @ local_y,
+        )
+        x_with_intercept = np.concatenate(([1.0], x))
+        return float((x_with_intercept @ weights).item())
     
 
-    def fixed_k(self, K, eps):
+    def fixed_k(self, K, eps, verbose=True):
         self.eps = eps
         n = self.X_va_norm.shape[0]
         y_hat_va_norm = np.zeros(n, dtype=float)
         for i in range(n):
-            x = self.X_va_norm[i, :]                       
-            d = self.euclidean_distance(x, self.X_tr_norm)
-            idx = np.argsort(d)[:K]
-            A = self.X_tr_norm[idx, :]                     # (K, F)
-            y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
-            F = A.shape[1]
-            I = np.eye(F)
-            w_hat = np.linalg.solve(A.T @ A + eps * I, A.T @ y)
-            
-            y_hat_va_norm[i] = (x @ w_hat).item()
+            y_hat_va_norm[i] = self.local_prediction(
+                self.X_va_norm[i, :],
+                K,
+            )
             
         mse_val = float(np.mean((self.y_va_norm - y_hat_va_norm) ** 2))
-        print(f"[K={K}] Validation MSE (normalized): {mse_val:.6f}")
+        if verbose:
+            print(
+                f"[K={K}, eps={eps:g}] Validation MSE "
+                f"(normalized): {mse_val:.6f}"
+            )
         return mse_val
 
-    def optimized_k(self, k_min, k_max, step):
+    def optimized_k(self, k_min, k_max, step, eps_values=None):
+        if eps_values is None:
+            eps_values = (1e-6, 1e-4, 1e-2, 1e-1, 1.0)
         K_values = np.arange(int(k_min), int(k_max) + 1, int(step), dtype=int)
-        mse_values = np.empty(K_values.shape[0], dtype=float)
-        for i, k in enumerate(K_values):
-            mse_values[i] = self.fixed_k(K=k, eps=1e-8)
-    
-        best_idx = int(np.argmin(mse_values))
-        self.K_opt = int(K_values[best_idx])
-        mse_min = float(mse_values[best_idx])
+        mse_values = np.empty((len(eps_values), len(K_values)), dtype=float)
+        for eps_index, eps in enumerate(eps_values):
+            for k_index, k in enumerate(K_values):
+                mse_values[eps_index, k_index] = self.fixed_k(
+                    K=k,
+                    eps=eps,
+                    verbose=False,
+                )
+
+        best_eps_index, best_k_index = np.unravel_index(
+            np.argmin(mse_values),
+            mse_values.shape,
+        )
+        self.K_opt = int(K_values[best_k_index])
+        self.eps = float(eps_values[best_eps_index])
+        mse_min = float(mse_values[best_eps_index, best_k_index])
     
         # plot opzionale
         plt.figure()
-        plt.plot(K_values, mse_values, '-o')
+        for eps_index, eps in enumerate(eps_values):
+            plt.plot(
+                K_values,
+                mse_values[eps_index],
+                '-o',
+                label=f'eps={eps:g}',
+            )
         plt.xlabel('K')
         plt.ylabel('Validation MSE (normalized)')
-        plt.title('MSE vs K (validation)')
+        plt.title('KNN-LLS validation search')
         plt.grid(True)
+        plt.legend()
         plt.tight_layout()
         plt.savefig('./K_optimization.png')
         plt.draw()
     
-        print(f"[optimized_k] Best K = {self.K_opt}  |  MSE_val (norm) = {mse_min:.6f}")
+        print(
+            f"[optimized_k] Best K = {self.K_opt}, eps = {self.eps:g} "
+            f"| MSE_val (norm) = {mse_min:.6f}"
+        )
 
     #% Test phase
     def test(self):
@@ -189,15 +241,10 @@ class UPDRS:
         n = self.X_te_norm.shape[0]
         y_hat_te_norm = np.zeros(n, dtype=float)
         for i in range(n):
-            x = self.X_te_norm[i, :]                       
-            d = self.euclidean_distance(x, self.X_tr_norm)
-            idx = np.argsort(d)[:self.K_opt]
-            A = self.X_tr_norm[idx, :]                     # (K, F)
-            y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
-            F = A.shape[1]
-            I = np.eye(F)
-            w_hat = np.linalg.solve(A.T @ A + self.eps * I, A.T @ y)
-            y_hat_te_norm[i] = (x @ w_hat).item()
+            y_hat_te_norm[i] = self.local_prediction(
+                self.X_te_norm[i, :],
+                self.K_opt,
+            )
         
         # De-normalization
         sy = self.sy
@@ -210,13 +257,18 @@ class UPDRS:
         self.plot_results(y_te, y_hat_knn, e_knn, "KNN-LLS (Test)")
         
         # --- Standard LLS on Test Set ---
-        X_train = self.X_tr_norm
+        X_train = np.column_stack(
+            [np.ones(self.X_tr_norm.shape[0]), self.X_tr_norm]
+        )
         y_train = self.y_tr_norm.reshape(-1, 1)
         
         solver = mymin.SolveLLS(y=y_train, A=X_train)
         solver.run()
         w_lls = solver.what
-        y_hat_lls_norm = (self.X_te_norm @ w_lls).flatten()
+        X_test = np.column_stack(
+            [np.ones(self.X_te_norm.shape[0]), self.X_te_norm]
+        )
+        y_hat_lls_norm = (X_test @ w_lls).flatten()
         
         # De-normalization
         y_hat_lls = y_hat_lls_norm * sy + my
@@ -228,15 +280,11 @@ class UPDRS:
         n_tr = self.X_tr_norm.shape[0]
         y_hat_tr_knn_norm = np.zeros(n_tr, dtype=float)
         for i in range(n_tr):
-            x = self.X_tr_norm[i, :]                       
-            d = self.euclidean_distance(x, self.X_tr_norm)
-            idx = np.argsort(d)[:self.K_opt]
-            A = self.X_tr_norm[idx, :]                     # (K, F)
-            y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
-            F = A.shape[1]
-            I = np.eye(F)
-            w_hat = np.linalg.inv(A.T @ A + self.eps * I) @ (A.T @ y)   # (F,1)
-            y_hat_tr_knn_norm[i] = (x @ w_hat).item()
+            y_hat_tr_knn_norm[i] = self.local_prediction(
+                self.X_tr_norm[i, :],
+                self.K_opt,
+                exclude_index=i,
+            )
             
         y_hat_tr_knn = y_hat_tr_knn_norm * sy + my
         y_tr = self.y_tr_norm * sy + my
@@ -249,6 +297,13 @@ class UPDRS:
         mse = np.mean(e**2)
         R2 = 1 - np.sum(e**2) / np.sum((y_true - np.mean(y_true))**2)
         corr = np.corrcoef(y_true, y_pred)[0, 1]
+        self.metrics[label] = {
+            'mean_error': float(mean_e),
+            'std_error': float(std_e),
+            'mse': float(mse),
+            'r2': float(R2),
+            'correlation': float(corr),
+        }
         
         print(f"\nMetrics for {label}:")
         print(f"Mean error: {mean_e:.4f}")
@@ -281,6 +336,5 @@ if __name__ == "__main__":
     lab = UPDRS()
     lab.load_and_explore()
     lab.prepare_data()
-    lab.fixed_k(20, 1e-8)
-    lab.optimized_k(17, 100, 3)
+    lab.optimized_k(20, 150, 10)
     lab.test()
