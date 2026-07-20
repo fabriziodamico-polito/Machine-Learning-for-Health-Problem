@@ -1,149 +1,117 @@
-# 🧠 ICTE4SS — Machine Learning Labs
+# Biomedical Machine Learning Labs
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![NumPy](https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white)](https://numpy.org/)
-[![pandas](https://img.shields.io/badge/pandas-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**Seven reproducible experiments at the intersection of machine learning, biomedical data and signal processing.**
 
-> Laboratory assignments for the **ICT Engineering for Smart Societies (ICTE4SS)** course at [Politecnico di Torino](https://www.polito.it/), covering core Machine Learning techniques applied to real-world biomedical and signal processing problems.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
+  <img src="https://img.shields.io/badge/NumPy-2.5-013243?logo=numpy&logoColor=white" alt="NumPy 2.5">
+  <img src="https://img.shields.io/badge/pandas-3.0-150458?logo=pandas&logoColor=white" alt="pandas 3.0">
+  <img src="https://img.shields.io/badge/scikit--learn-1.9-F7931E?logo=scikit-learn&logoColor=white" alt="scikit-learn 1.9">
+  <a href="https://github.com/fabriziodamico-polito/Machine-Learning-for-Health-Problem/actions/workflows/ci.yml"><img src="https://github.com/fabriziodamico-polito/Machine-Learning-for-Health-Problem/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
 
----
+## What this repository demonstrates
 
-## 📋 Overview
+Healthcare data can make an inaccurate model look convincing when the evaluation protocol is weak. Repeated measurements from the same patient, preprocessing performed before the train/test split or a target-related feature can all inflate a metric without improving real-world generalization.
 
-This repository contains 7 laboratory projects spanning the full ML pipeline — from optimization fundamentals to advanced signal processing. Each lab applies established ML techniques to a specific domain problem, with reproducible code and detailed documentation.
+This repository applies optimization, regression, classification, clustering and signal-processing methods to biomedical problems while making those evaluation boundaries explicit. In particular, the Parkinson experiments split data **by patient**, and the kidney pipeline fits every imputation step **only on the training partition**.
 
-| #  | Lab                                                                 | Domain       | Techniques                                        | Dataset                                                                                       |
-| -- | ------------------------------------------------------------------- | ------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 01 | [Optimization Methods](./01_optimization_methods/)                   | Fundamentals | LLS, Gradient Descent, Steepest Descent           | Synthetic                                                                                     |
-| 02 | [Parkinson Regression](./02_parkinson_regression/)                   | Neurology    | Linear Regression (LLS & SD), Feature Selection   | [Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) |
-| 03 | [Parkinson KNN Regression](./03_parkinson_knn_regression/)           | Neurology    | KNN-LLS, Ridge Regression, Model Selection        | [Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) |
-| 04 | [Mole Segmentation](./04_mole_segmentation/)                         | Dermatology  | K-Means, DBSCAN, Sobel Edge Detection             | Dermoscopic Images                                                                            |
-| 05 | [Kidney Disease Classification](./05_kidney_disease_classification/) | Nephrology   | Decision Trees, Random Forest, LLS Imputation     | [Chronic Kidney Disease](https://archive.ics.uci.edu/ml/datasets/Chronic_Kidney_Disease)       |
-| 06 | [COVID Serological Analysis](./06_covid_serological_analysis/)       | Epidemiology | ROC Curves, AUC, Youden's J, DBSCAN               | COVID-19 Serological Study                                                                    |
-| 07 | [EEG Signal Processing](./07_eeg_signal_processing/)                 | Neuroscience | CLT, Box-Muller, FastICA, PCA, Hypothesis Testing | Synthetic Signals                                                                             |
+> The most valuable result is not always the highest score. A negative R² on unseen patients can reveal more about a model's limitations than an optimistic score produced by patient leakage.
 
----
+## Experiments and verified results
 
-## 🔬 ML Techniques Map
+| Lab | Problem | Main techniques | Validation and current result |
+| --- | --- | --- | --- |
+| [01](./01_optimization_methods/) | Linear optimization fundamentals | SVD least squares, Gradient Descent, Steepest Descent | Seeded noiseless system; all three coefficient errors below `1e-6` |
+| [02](./02_parkinson_regression/) | UPDRS regression from voice biomarkers | LLS, Steepest Descent | 21 train / 21 test patients, zero overlap; test R² `-1.32` LLS and `-1.26` SD |
+| [03](./03_parkinson_knn_regression/) | Local UPDRS regression | KNN-LLS with intercept, ridge stabilization, model selection | 16/8/18 patient split; KNN test R² `-0.68`, global LLS `-0.95` |
+| [04](./04_mole_segmentation/) | Skin-lesion border extraction | K-Means, DBSCAN, median and Sobel filters | Smoke-tested qualitative pipeline; no ground-truth masks or clinical validation |
+| [05](./05_kidney_disease_classification/) | CKD classification with missing data | Median and iterative regression imputation, CART, Random Forest | Stratified 70/30 patient holdout; RF accuracy `1.00` median and `0.992` regression imputation |
+| [06](./06_covid_serological_analysis/) | Serological test evaluation | ROC, AUC, Youden's J, stratified bootstrap | 862 known-label samples; AUC `0.943` and `0.936` with 95% intervals; DBSCAN reported separately |
+| [07](./07_eeg_signal_processing/) | Statistical simulation and source separation | CLT, Box-Muller, FastICA, PCA | Aligned mean source correlation: FastICA `0.9998`, PCA `0.7854` |
 
-### Regression
+These figures are generated by the committed code with fixed random seeds and the pinned dependency versions. They describe these datasets only; they are not estimates of clinical performance.
 
-- **Linear Least Squares (LLS)** — closed-form solution via normal equations
-- **Steepest Descent** — iterative optimization with adaptive step size
-- **Gradient Descent** — fixed learning rate iterative minimization
-- **KNN-LLS** — local linear regression on K nearest neighbors with ridge regularization
+## Methodological safeguards
 
-### Classification
+- **Patient-level splitting:** repeated Parkinson recordings from one person cannot cross data partitions.
+- **Training-only preprocessing:** normalization and kidney imputation are fitted without observing the test set.
+- **Target-proxy exclusion:** `motor_UPDRS` is excluded when predicting `total_UPDRS` from voice biomarkers.
+- **Deterministic experiments:** random seeds and dependency versions are fixed.
+- **Multiple metrics:** health classification reports accuracy, balanced accuracy, F1 and confusion matrices.
+- **Uncertainty reporting:** serological AUC values include bootstrap confidence intervals.
+- **Transparent sensitivity analysis:** the serology headline metrics use every known-label sample; DBSCAN-filtered results are reported separately.
+- **Ambiguity-aware source separation:** ICA components are aligned for permutation, sign and scale before scoring.
+- **Automated regression checks:** CI validates the data boundaries and runs every experiment headlessly.
 
-- **Decision Trees (CART)** — entropy-based splitting for interpretable models
-- **Random Forest** — ensemble learning with 100–1000 estimators
-- **ROC Analysis** — sensitivity/specificity trade-off, AUC computation, threshold optimization
+## Quick start
 
-### Clustering & Segmentation
+### Requirements
 
-- **K-Means** — color quantization for image segmentation
-- **DBSCAN** — density-based spatial clustering for mole detection and outlier removal
-
-### Signal Processing
-
-- **FastICA** — Independent Component Analysis for blind source separation
-- **PCA** — Principal Component Analysis for dimensionality reduction
-- **Sobel Filters** — gradient-based edge detection
-
-### Statistical Methods
-
-- **Central Limit Theorem** — approximate Gaussian generation from uniform RVs
-- **Box-Muller Transform** — exact Gaussian sampling
-- **Anderson-Darling Test** — goodness-of-fit for normality
-- **Youden's J Statistic** — optimal threshold selection for binary classifiers
-
-### Data Preprocessing
-
-- **Z-Score Normalization** — mean/std standardization
-- **Missing Data Imputation** — regression-based (LLS) and median imputation
-- **Feature Selection** — correlation analysis, collinearity removal
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python 3.10+
-- pip
-
-### Installation
+- Python 3.12
+- Git
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/ICTE4SS-Machine-Learning-Labs.git
-cd ICTE4SS-Machine-Learning-Labs
+git clone https://github.com/fabriziodamico-polito/Machine-Learning-for-Health-Problem.git
+cd Machine-Learning-for-Health-Problem
 
-# Create and activate virtual environment
 python -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-.venv\Scripts\activate       # Windows
-
-# Install dependencies
-pip install -r requirements.txt
 ```
 
-### Running a Lab
-
-Each lab is self-contained. Navigate to the desired folder and run:
+Activate the environment:
 
 ```bash
+# Linux/macOS
+source .venv/bin/activate
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+Install and run an experiment:
+
+```bash
+python -m pip install -r requirements.txt
 cd 02_parkinson_regression
 python parkinson_regression.py
 ```
 
+Run the complete validation suite from the repository root:
 
-
----
-
-## 📁 Project Structure
-
+```bash
+python -m unittest discover -s tests -v
+python scripts/run_all_labs.py
+python scripts/check_secrets.py
 ```
-ICTE4SS-Machine-Learning-Labs/
-├── README.md
-├── .gitignore
-├── requirements.txt
-├── utils/
-│   ├── __init__.py
-│   └── minimization.py            # Shared optimization solvers (LLS, GD, SD)
+
+The experiment scripts generate plots locally. Generated images are excluded from version control except for the dermoscopic input samples.
+
+## Repository structure
+
+```text
+.
 ├── 01_optimization_methods/
-│   └── optimization_demo.py
 ├── 02_parkinson_regression/
-│   ├── parkinson_regression.py
-│   └── data/
 ├── 03_parkinson_knn_regression/
-│   ├── knn_regression.py
-│   └── data/
 ├── 04_mole_segmentation/
-│   ├── mole_segmentation.py
-│   └── data/images/
 ├── 05_kidney_disease_classification/
-│   ├── kidney_classification.py
-│   └── data/
 ├── 06_covid_serological_analysis/
-│   ├── covid_roc_analysis.py
-│   └── data/
-└── 07_eeg_signal_processing/
-    ├── central_limit_theorem.py
-    └── fastica_bss.py
+├── 07_eeg_signal_processing/
+├── utils/                  # Shared numerical optimization classes
+├── tests/                  # Leakage and preprocessing regression tests
+├── scripts/                # Full-suite runner and credential scanner
+├── DATASETS.md             # Provenance, licenses and open questions
+└── requirements.txt        # Tested, pinned environment
 ```
 
----
+## Data provenance and responsible use
 
-## 🛠️ Shared Utilities
+The Parkinson and kidney datasets are redistributed under CC BY 4.0 with attribution. Provenance for the dermoscopic images and COVID serology table is not yet documented well enough to assign a redistribution license; see [DATASETS.md](./DATASETS.md).
 
-The [`utils/minimization.py`](./utils/minimization.py) module provides a reusable OOP framework for solving linear minimization problems:
+This repository is an educational exploration. It must not be used for diagnosis, treatment decisions or any other clinical purpose. The experiments have no external clinical validation, prospective evaluation or regulatory review.
 
-| Class              | Method           | Description                                                     |
-| ------------------ | ---------------- | --------------------------------------------------------------- |
-| `SolveMinProbl`  | —               | Abstract base class with common plotting and printing           |
-| `SolveLLS`       | Closed-form      | $(A^T A)^{-1} A^T y$                                          |
-| `SolveGrad`      | Gradient Descent | Fixed learning rate$\gamma$                                   |
-| `SolveSteepDesc` | Steepest Descent | Adaptive$\gamma_k = \|\nabla J\|^2 / (\nabla J^T H \nabla J)$ |
+## Project context and licensing
+
+Developed for the **ICT Engineering for Smart Societies** course at Politecnico di Torino.
+
+The repository currently does not grant a software license. Dataset-specific terms are documented separately and do not automatically apply to the source code.

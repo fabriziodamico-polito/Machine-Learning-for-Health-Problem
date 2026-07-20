@@ -12,22 +12,24 @@ This lab introduces the Object-Oriented Programming (OOP) framework used through
 
 | Method | Type | Description |
 |--------|------|-------------|
-| **Linear Least Squares (LLS)** | Closed-form | Direct solution via the normal equation: $\hat{w} = (A^T A)^{-1} A^T y$ |
-| **Gradient Descent (GD)** | Iterative | Fixed learning rate $\gamma$, iterates $w_{k+1} = w_k - \gamma \nabla J(w_k)$ |
+| **Linear Least Squares (LLS)** | Direct | Stable SVD-based least-squares solution via `numpy.linalg.lstsq` |
+| **Gradient Descent (GD)** | Iterative | Fixed learning rate $\gamma$, chosen from the Hessian spectral norm |
 | **Steepest Descent (SD)** | Iterative | Adaptive step size via $\gamma_k = \|\nabla J\|^2 / (\nabla J^T H \nabla J)$ |
 
 ## Implementation Details
 
-- A random matrix $A \in \mathbb{R}^{100 \times 4}$ and a true weight vector $w$ are generated
+- A seeded random matrix $A \in \mathbb{R}^{100 \times 4}$ and a true weight vector $w$ are generated
 - The target vector is computed as $y = Aw$ (noiseless scenario)
 - Each solver estimates $\hat{w}$ and compares it against the ground truth
 - The shared `SolveMinProbl` base class (in `utils/minimization.py`) provides common functionality via inheritance
 
 ## Key Results
 
-- **LLS** recovers the exact solution in one step (as expected for noiseless data)
-- **Gradient Descent** converges to the solution, with convergence rate depending on $\gamma$
-- **Steepest Descent** converges faster than GD thanks to the adaptive step size, and is less sensitive to hyperparameter tuning
+- **LLS coefficient error:** `1.07e-15`
+- **Gradient Descent coefficient error:** below machine precision after 1,000 iterations
+- **Steepest Descent coefficient error:** `3.34e-10`
+
+The test suite requires every solver to recover the known noiseless coefficient vector with error below `1e-6`. This makes convergence an automated numerical result rather than a visual claim.
 
 ## How to Run
 

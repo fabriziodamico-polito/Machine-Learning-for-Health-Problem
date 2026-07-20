@@ -1,133 +1,135 @@
+"""Reproducible FastICA/PCA comparison on synthetic source signals."""
 
-# FastICA on an artificial example
-
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
-import matplotlib.pyplot as plt
+from scipy.optimize import linear_sum_assignment
 from sklearn.decomposition import FastICA, PCA
-from matplotlib.pyplot import cm
 
-np.random.seed(50)  # set the seed to reproduce the experiment
 
-plt.close('all')
-#%% Generate the signals
-N = 10000 # number of samples
-N_signals = 4
-t = np.linspace(0, 10, N) # generate the time axis (seconds)
-t.resize(1,N)
-freq1 = 0.5 # main frequency (Hz)
-freq2 = freq1*np.sqrt(2)
-freq3 = freq1*np.sqrt(5)
-x1 = np.sin(2*np.pi*freq1* t-np.pi/4)  # Signal 1: sinusoidal signal
-x2 = np.sign(np.sin(2*np.pi*freq2* t-np.pi/5))  # Signal 2: square wave
-x3 = signal.sawtooth(2*np.pi*freq3* t)  # Signal 3: saw tooth signal
-x4=np.cumsum(x2)
-x4=(x4-x4.mean())/x4.std()
-x4=x4/x4.max()
-x4.resize(1,N) # signal 4: triangular signal
-t=t.flatten()
-# if you want to see what happens with signals having Gaussian pdf
-# x4=np.random.randn(1,N)
-# x4=x4/x4.max()
-# x3=np.random.randn(1,N)
-# x3=x3/x3.max()
+RANDOM_SEED = 42
 
-X = np.concatenate((x1,x2,x3,x4),axis=0) # shape: 4 rows N columns
-color = iter(cm.Set1(np.linspace(0, 1,N_signals)))
-plt.figure() # plots of the original signals
-for n in range(N_signals):
-    c = next(color)
-    plt.subplot(N_signals,1,1+n)
-    plt.plot(t,X[n,:],'--',color=c,label='original signal '+str(n+1))
-    plt.grid()
-    plt.legend()
-plt.xlabel('t (s)')
-plt.tight_layout()
 
-#%% Generate the observed/mixed signals
-A = np.random.randn(N_signals,N_signals)  # true weight matrix (random)
-Y = np.dot(A,X)  # observed/mixed signals, shape: 4 rows N columns
-W = np.linalg.inv(A)
-color = iter(cm.Set1(np.linspace(0, 1,N_signals)))
-plt.figure()# plots of the mixed signals
-for n in range(N_signals):
-    c = next(color)
-    plt.subplot(N_signals,1,1+n)
-    plt.plot(t,Y[n,:],'--',color=c,label='mixed signal '+str(n+1))
-    plt.grid()
-    plt.legend()
-plt.xlabel('t (s)')
-plt.tight_layout()
-#%% reshape
-X=X.T #shape: N rows, 4 columns 
-Y=Y.T #shape: N rows, 4 columns 
+def standardize_columns(values):
+    return (values - values.mean(axis=0)) / values.std(axis=0)
 
-#%% look at the pdfs
-plt.figure(figsize=(5,8))# histograms
-Nbins = np.ceil(1+np.log2(N)).astype(int)
-plt.title('normalized histograms of original signals')
-for n in range(N_signals):
-    plt.subplot(N_signals,1,1+n)
-    plt.hist(X[:,n],bins=Nbins,density=True,label='Original signal '+str(n+1))
-    plt.legend()
-plt.xlabel('sample values')
-plt.ylabel('estimated pdf')
-plt.tight_layout()
-plt.figure(figsize=(5,8))
-plt.title('normalized histograms of mixed signals')
-for n in range(N_signals):
-    plt.subplot(N_signals,1,1+n)
-    plt.hist(Y[:,n],bins=Nbins,density=True,label='Mixed signal '+str(n+1))
-    plt.legend()
-plt.xlabel('sample values')
-plt.ylabel('estimated pdf')
-plt.tight_layout()
 
-#%% Use FastICA
-ica = FastICA(n_components=N_signals,algorithm="deflation", whiten="unit-variance")
-XhatICA = ica.fit_transform(Y)  # Reconstruct indep signals from obervations
-Ahat = ica.mixing_  # estimated A
-What = ica.components_ # estimated matrix W: Xhat=np.dot(Y,ica.components_.T)
+def align_components(reference, estimated):
+    """Resolve ICA/PCA permutation, sign and scale ambiguities."""
+    reference = standardize_columns(reference)
+    estimated = standardize_columns(estimated)
+    n_sources = reference.shape[1]
+    correlation = np.corrcoef(reference.T, estimated.T)[:n_sources, n_sources:]
+    source_indices, component_indices = linear_sum_assignment(-np.abs(correlation))
 
-vm1=W.min()
-VM1=W.max()
-vm2=What.min()
-VM2=What.max()
-vm=np.min([vm1,vm2])
-VM=np.max([VM1,VM2])
+    aligned = np.empty_like(estimated)
+    scores = np.empty(n_sources, dtype=float)
+    for source_index, component_index in zip(source_indices, component_indices):
+        sign = 1.0 if correlation[source_index, component_index] >= 0 else -1.0
+        aligned[:, source_index] = sign * estimated[:, component_index]
+        scores[source_index] = abs(correlation[source_index, component_index])
+    return aligned, scores, correlation
 
-plt.figure()
-plt.subplot(1,2,1)
-plt.matshow(W,0,vmin=vm,vmax=VM, cmap='hot')
-plt.colorbar()
-plt.title('True matrix W')
-plt.subplot(1,2,2)
-plt.matshow(What,0,vmin=vm,vmax=VM, cmap='hot')
-plt.colorbar()
-plt.title('Estimated matrix W')
-#%% Use also PCA
-pca = PCA(n_components=N_signals)
-XhatPCA = pca.fit_transform(Y)  # Reconstruct signals based on orthogonal components
 
-#%% Plot the results
-color = iter(cm.Set1(np.linspace(0, 1,N_signals)))
-plt.figure()
-for n in range(N_signals):
-    c = next(color)
-    plt.subplot(N_signals,1,1+n)
-    plt.plot(t,XhatICA[:,n]/np.max(XhatICA[:,n]),'-',color=c,label='ICA component '+str(n+1)) 
-    plt.plot(t,X[:,n]/np.max(X[:,n]),'--',color=c,label='signal '+str(n+1))
-    plt.grid()
-    plt.legend()
-plt.xlabel('t (s)')
-color = iter(cm.Set1(np.linspace(0, 1,N_signals)))
-plt.figure()
-for n in range(N_signals):
-    c = next(color)
-    plt.subplot(N_signals,1,1+n)
-    plt.plot(t,XhatPCA[:,n]/np.max(XhatPCA[:,n]),'-',color=c,label='PCA component '+str(n+1)) 
-    plt.plot(t,X[:,n]/np.max(X[:,n]),'--',color=c,label='signal '+str(n+1))
-    plt.grid()
-    plt.legend()
-plt.xlabel('t (s)')
-plt.show()
+def generate_sources(n_samples, rng):
+    """Create four non-Gaussian sources without deterministic duplication."""
+    time = np.linspace(0, 10, n_samples, endpoint=False)
+    base_frequency = 0.5
+    sources = np.column_stack(
+        [
+            np.sin(2 * np.pi * base_frequency * time - np.pi / 4),
+            np.sign(
+                np.sin(2 * np.pi * base_frequency * np.sqrt(2) * time - np.pi / 5)
+            ),
+            signal.sawtooth(2 * np.pi * base_frequency * np.sqrt(5) * time),
+            rng.laplace(size=n_samples),
+        ]
+    )
+    return time, standardize_columns(sources)
+
+
+def run_experiment(n_samples=10000, seed=RANDOM_SEED, plot=True):
+    rng = np.random.default_rng(seed)
+    time, sources = generate_sources(n_samples, rng)
+    mixing = rng.standard_normal((sources.shape[1], sources.shape[1]))
+    mixed = sources @ mixing.T
+
+    ica = FastICA(
+        n_components=sources.shape[1],
+        algorithm='deflation',
+        whiten='unit-variance',
+        max_iter=2000,
+        tol=1e-5,
+        random_state=seed,
+    )
+    estimated_ica = ica.fit_transform(mixed)
+    estimated_pca = PCA(n_components=sources.shape[1]).fit_transform(mixed)
+
+    aligned_ica, ica_scores, ica_correlation = align_components(
+        sources,
+        estimated_ica,
+    )
+    aligned_pca, pca_scores, pca_correlation = align_components(
+        sources,
+        estimated_pca,
+    )
+
+    print('Absolute source correlations after optimal alignment:')
+    print(f'FastICA: {np.round(ica_scores, 4)}')
+    print(f'PCA:     {np.round(pca_scores, 4)}')
+    print(f'FastICA mean correlation: {ica_scores.mean():.4f}')
+    print(f'PCA mean correlation:     {pca_scores.mean():.4f}')
+
+    if plot:
+        names = ['Sine', 'Square', 'Sawtooth', 'Laplace noise']
+        display_count = min(n_samples, 2500)
+
+        plt.figure(figsize=(10, 8))
+        for index, name in enumerate(names):
+            axis = plt.subplot(len(names), 1, index + 1)
+            axis.plot(time[:display_count], sources[:display_count, index])
+            axis.set_title(f'Original source: {name}')
+            axis.grid()
+        plt.tight_layout()
+
+        for method_name, aligned in (
+            ('FastICA', aligned_ica),
+            ('PCA', aligned_pca),
+        ):
+            plt.figure(figsize=(10, 8))
+            for index, name in enumerate(names):
+                axis = plt.subplot(len(names), 1, index + 1)
+                axis.plot(
+                    time[:display_count],
+                    sources[:display_count, index],
+                    '--',
+                    label='source',
+                )
+                axis.plot(
+                    time[:display_count],
+                    aligned[:display_count, index],
+                    label=method_name,
+                    alpha=0.8,
+                )
+                axis.set_title(name)
+                axis.grid()
+                axis.legend()
+            plt.tight_layout()
+
+        plt.show()
+
+    return {
+        'sources': sources,
+        'mixed': mixed,
+        'aligned_ica': aligned_ica,
+        'aligned_pca': aligned_pca,
+        'ica_correlations': ica_scores,
+        'pca_correlations': pca_scores,
+        'ica_correlation_matrix': ica_correlation,
+        'pca_correlation_matrix': pca_correlation,
+        'mixing_condition_number': float(np.linalg.cond(mixing)),
+    }
+
+
+if __name__ == '__main__':
+    run_experiment()
