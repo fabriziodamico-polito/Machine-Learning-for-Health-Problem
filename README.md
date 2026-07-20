@@ -112,6 +112,6 @@ This repository is an educational exploration. It must not be used for diagnosis
 
 ## Project context and licensing
 
-Developed for the **ICT Engineering for Smart Societies** course at Politecnico di Torino.
+Developed for the **MAchine Learning for Health** course at Politecnico di Torino.
 
 The repository currently does not grant a software license. Dataset-specific terms are documented separately and do not automatically apply to the source code.
