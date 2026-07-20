@@ -1,4 +1,4 @@
-# 🧠 Machine Learning for Health Labs
+# Machine Learning for Health Labs
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-2.5-013243?logo=numpy&logoColor=white)](https://numpy.org/)
