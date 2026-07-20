@@ -1,4 +1,4 @@
-# Biomedical Machine Learning Labs
+# Machine Learning for Health Labs
 
 **Seven reproducible experiments at the intersection of machine learning, biomedical data and signal processing.**
 
