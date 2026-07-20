@@ -168,6 +168,6 @@ Detailed assumptions, results and limitations are documented inside each laborat
 
 ## 📚 Data and Responsible Use
 
-Dataset sources, citations and known redistribution terms are documented in [DATASETS.md](./DATASETS.md). The provenance of the dermoscopic images and COVID-19 table still requires confirmation.
+Dataset sources, citations and known redistribution terms are documented in [DATASETS.md](./DATASETS.md).
 
 This repository is an educational project. It is not clinically validated and must not be used for diagnosis or treatment decisions. The repository currently does not grant a software license.
