@@ -1,53 +1,52 @@
-# Parkinson's Disease Progression — KNN-LLS Regression
+# Parkinson's Disease Progression - Local KNN-LLS Regression
 
 ## Objective
 
-Improve upon standard linear regression by implementing a **K-Nearest Neighbors combined with Local Linear Regression (KNN-LLS)** approach for predicting `total_UPDRS`. This method fits a local linear model for each test point using only its K nearest training neighbors, capturing non-linear relationships in the data.
+Test whether a local model can predict `total_UPDRS` better than one global linear model. For each observation, KNN-LLS finds nearby training samples and fits a regularized linear regression only on that neighborhood.
 
 ## Dataset
 
 | Property | Value |
-|----------|-------|
-| **Source** | [UCI Machine Learning Repository — Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) |
-| **Samples** | ~5,875 voice recordings |
-| **Features** | 16 voice measures (jitter, shimmer, HNR, etc.) |
-| **Target** | `total_UPDRS` (continuous, 7–55) |
+| --- | --- |
+| Source | [UCI Parkinsons Telemonitoring](https://archive.ics.uci.edu/dataset/189/parkinson) |
+| Repository subset | 990 recordings from 42 subjects |
+| Predictors | Voice measures plus age and sex |
+| Target | `total_UPDRS` |
+| License | CC BY 4.0; see [DATASETS.md](../DATASETS.md) |
 
-## Techniques
+The 990-row repository copy is a subset of the 5,875-recording UCI dataset. Its derivation is currently unknown.
 
-| Method | Description |
-|--------|-------------|
-| **KNN-LLS** | For each test point, find K nearest neighbors in feature space, then solve a local LLS regression on that subset |
-| **Ridge Regularization** | Small $\varepsilon I$ term added to $A^T A$ to ensure invertibility |
-| **K Optimization** | Validation set used to sweep K values and select the optimal one (minimum MSE) |
-| **Train/Validation/Test Split** | 40% / 20% / 40% partitioning |
-| **Evaluation Metrics** | MSE, R², Pearson correlation coefficient |
+## Method
 
-## Pipeline
-
-```
-Load CSV → Correlation Analysis → Shuffle → Split (40/20/40)
-→ Normalize → Drop Features → Optimize K on Validation Set
-→ Merge Train+Validation → Test KNN-LLS vs Standard LLS → Evaluate
+```text
+Split subjects into train / validation / test (16 / 8 / 18)
+-> fit normalization on training subjects
+-> choose K on validation subjects
+-> evaluate KNN-LLS and global LLS on untouched test subjects
 ```
 
-## Key Results
+- Patient groups, rather than individual recordings, define every split.
+- A small ridge term stabilizes each local least-squares system.
+- `motor_UPDRS`, identifiers and collinear derived measures are excluded.
+- The validation set selects K; the test set is used only for final evaluation.
 
-- **Optimal K** found via grid search on the validation set
-- KNN-LLS achieves **lower MSE** and **higher R²** than standard LLS on the test set, confirming it captures local non-linear patterns
-- The improvement is especially visible in the scatter plot (tighter clustering around the diagonal)
+## Verified results
 
-## How to Run
+| Model | Test MSE | Test R-squared |
+| --- | ---: | ---: |
+| KNN-LLS | 332.46 | -1.65 |
+| Global LLS | 246.54 | -0.97 |
+
+KNN-LLS fits the training observations more closely (training R-squared `0.80`) but performs worse than global LLS on unseen patients. The gap is evidence that local similarity among repeated recordings does not automatically translate into patient-level generalization. Reporting that limitation is more informative than preserving the high scores produced by a leaked row-level split.
+
+## Run
 
 ```bash
 cd 03_parkinson_knn_regression
 python knn_regression.py
 ```
 
-## Files
-
 | File | Description |
-|------|-------------|
-| `knn_regression.py` | Main analysis script with KNN-LLS implementation |
-| `knn_regression.ipynb` | Jupyter notebook with inline outputs |
-| `data/parkinsons_updrs.csv` | Dataset |
+| --- | --- |
+| `knn_regression.py` | Patient-isolated KNN-LLS experiment and global baseline |
+| `data/parkinsons_updrs.csv` | Course subset used by the script |

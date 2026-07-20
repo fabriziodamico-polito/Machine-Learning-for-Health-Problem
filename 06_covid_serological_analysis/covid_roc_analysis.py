@@ -10,6 +10,7 @@ import os
 
 plt.rcParams["font.family"] = "Times New Roman"
 plt.close('all')
+RANDOM_SEED = 42
 
 class Covid():
     def __init__(self):
@@ -19,8 +20,7 @@ class Covid():
         self.Test = Test
         # remove the unceratin swab results and set 1: positive / 0: negative
         xx = pd.read_csv(self.data)
-        xx = xx[xx.COVID_swab_res!=1] # remove unclear results
-        xx.COVID_swab_res[xx.COVID_swab_res == 2] = 1 # set swab result from 2 to 1 for ill patients
+        xx = xx[xx.COVID_swab_res != 1].copy()  # remove unclear results
         xx.loc[xx.COVID_swab_res==2,"COVID_swab_res"] = 1
         # data Analysis
         #xx.describe()
@@ -34,6 +34,7 @@ class Covid():
         db = sk.DBSCAN(eps=0.05, min_samples=5)
         labels = db.fit_predict(X_norm)
         xx = xx[labels != -1]
+        print(f"{self.Test}: retained {len(xx)} samples after DBSCAN filtering")
         # values of the Test 
         self.swab = xx.COVID_swab_res.values # results from swab: 0 = no illness, 1 = illness
         if Test == "Test1":
@@ -98,7 +99,20 @@ class Covid():
         # AUC sklearn
         fpr, tpr, thresh = metrics.roc_curve(self.swab, self.Test_value, pos_label=1)
         AUC = roc_auc_score(self.swab, self.Test_value)
-        print('Sklearn AUC:', AUC)
+        ci_low, ci_high = self.bootstrap_auc_ci()
+        print(f'Sklearn AUC: {AUC:.4f} (bootstrap 95% CI: {ci_low:.4f}-{ci_high:.4f})')
+
+    def bootstrap_auc_ci(self, n_bootstrap=2000):
+        rng = np.random.default_rng(RANDOM_SEED)
+        scores = []
+        sample_count = len(self.swab)
+        for _ in range(n_bootstrap):
+            indices = rng.integers(0, sample_count, sample_count)
+            labels = self.swab[indices]
+            if len(np.unique(labels)) < 2:
+                continue
+            scores.append(roc_auc_score(labels, self.Test_value[indices]))
+        return tuple(np.percentile(scores, [2.5, 97.5]))
 
     def SetThreshold(self):
         # Youden’s J statistic

@@ -1,15 +1,16 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import GroupShuffleSplit
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils import minimization as mymin
 
-matricola_seed = 306457  # Student ID (used as random seed)
+RANDOM_SEED = 42
 csv_path = os.path.join(os.path.dirname(__file__), "data", "parkinsons_updrs.csv")
 
 class ParkinsonUPDRS:
-    def __init__(self, seed=matricola_seed):
+    def __init__(self, seed=RANDOM_SEED):
         self.seed = seed
         self.results = {} #To store w_hat, errors, etc.
         
@@ -18,7 +19,7 @@ class ParkinsonUPDRS:
         plt.close('all')
 
     # Loads data and plots the covariance matrix 
-    def load_and_explore(self):
+    def load_and_explore(self, plot=True):
         # Read the dataset
         self.X = pd.read_csv(csv_path) # read the dataset; x is a Pandas dataframe
         features = list(self.X.columns) # list of features in the dataset
@@ -29,6 +30,9 @@ class ParkinsonUPDRS:
         print(f"Features: {len(features)}")
         print(self.X.describe().T)
         print(self.X.info())
+
+        if not plot:
+            return
 
         # Measure and show covariance matrix
         Xnorm = (self.X - self.X.mean()) / self.X.std() # normalized/standardized/scaled data
@@ -53,63 +57,47 @@ class ParkinsonUPDRS:
         plt.savefig('./UPDRS_corr_coeff.png')
         plt.draw()
 
-    # Suffle, split, normalizes, drop features
-    def prepare_data(self, shuffle=True, include_motor=True):
+    # Split by patient, normalize from training statistics, and drop features.
+    def prepare_data(self, include_motor=False, test_size=0.5):
+        groups = self.X['subject#'].to_numpy()
+        splitter = GroupShuffleSplit(
+            n_splits=1,
+            test_size=test_size,
+            random_state=self.seed,
+        )
+        train_idx, test_idx = next(splitter.split(self.X, groups=groups))
+        X_tr_raw = self.X.iloc[train_idx].copy()
+        X_te_raw = self.X.iloc[test_idx].copy()
 
-        Np, Nc = self.X.shape
-        
-        # 1. Shuffle (Flag Controlled) rationale: the original dataset is ordered by patients ID and contain different test for every patients,
-        # shuffling it we avoid to learn to weel about a single patients (overfitting)
-        if shuffle:
-            print("Shuffling: ON")
-            self.Xsh = self.X.sample(frac=1, replace=False, random_state=self.seed, axis=0, ignore_index=True)
-        else:
-            print("Shuffling: OFF")
-            self.Xsh = self.X.copy()
+        self.train_subjects = set(X_tr_raw['subject#'].unique())
+        self.test_subjects = set(X_te_raw['subject#'].unique())
+        overlap = self.train_subjects & self.test_subjects
+        if overlap:
+            raise RuntimeError(f"Patient leakage detected: {sorted(overlap)}")
 
-        # 2. Split (50/50)
-        Ntr = int(Np * 0.5) # number of training points
-        Nte = Np - Ntr # number of test points
-        
-        # 3. evaluate mean and st.dev. for Training Data Only
-        X_tr_raw = self.Xsh[0:Ntr]
+        print(
+            f"Patient-level split: {len(self.train_subjects)} train subjects / "
+            f"{len(self.test_subjects)} test subjects (overlap: 0)"
+        )
+
+        # Evaluate normalization parameters from training data only.
         self.mm = X_tr_raw.mean()
         self.ss = X_tr_raw.std()
         self.my = self.mm['total_UPDRS']
         self.sy = self.ss['total_UPDRS']
 
-        # 4. Normalize (Scaled training and test datasets)
-        Xsh_norm = (self.Xsh - self.mm) / self.ss
-        ysh_norm = Xsh_norm['total_UPDRS'] # Regressand
-
-        # 5. Drop Features 
-        # Always drop these (total_UPDRS + ID)
-        drop_list = ['total_UPDRS', 'subject#']
-        
-        # Drop Jitter:DDP and Shimmer:DDA
-        drop_list.extend(['Jitter:DDP', 'Shimmer:DDA'])
-        
-        # Handle Motor UPDRS flag
+        drop_list = ['total_UPDRS', 'subject#', 'Jitter:DDP', 'Shimmer:DDA']
         if not include_motor:
-            print("Motor UPDRS: EXCLUDED")
             drop_list.append('motor_UPDRS')
-        else:
-            print("Motor UPDRS: INCLUDED")
+        print(f"Motor UPDRS: {'INCLUDED' if include_motor else 'EXCLUDED'}")
 
-        Xsh_norm = Xsh_norm.drop(drop_list, axis=1) # Regressors only
-
-        self.regressors = list(Xsh_norm.columns)
+        self.regressors = [column for column in self.X.columns if column not in drop_list]
         print(f"New regressors ({len(self.regressors)}): {self.regressors}")
 
-        # Convert to NumPy
-        Xsh_norm = Xsh_norm.values # from datafram to Ndarray
-        ysh_norm = ysh_norm.values
-
-        # Final Split
-        self.X_tr_norm = Xsh_norm[0:Ntr] # regressors for training phase
-        self.X_te_norm = Xsh_norm[Ntr:] # regressors for test phase
-        self.y_tr_norm = ysh_norm[0:Ntr] # regressand for training phase
-        self.y_te_norm = ysh_norm[Ntr:] # regressand for test phase
+        self.X_tr_norm = ((X_tr_raw[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
+        self.X_te_norm = ((X_te_raw[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
+        self.y_tr_norm = ((X_tr_raw['total_UPDRS'] - self.my) / self.sy).to_numpy()
+        self.y_te_norm = ((X_te_raw['total_UPDRS'] - self.my) / self.sy).to_numpy()
 
     # Runs the solver (LLS or SD), de-normalizes and computes statistics
     def solve_and_evaluate(self, method):
@@ -231,7 +219,7 @@ class ParkinsonUPDRS:
 if __name__ == "__main__":
     lab = ParkinsonUPDRS()
     lab.load_and_explore()
-    lab.prepare_data(shuffle=True, include_motor=False)
+    lab.prepare_data(include_motor=False)
     lab.solve_and_evaluate("LLS")
     lab.solve_and_evaluate("SD")
     lab.compare_lls_sd()

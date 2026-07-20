@@ -1,54 +1,42 @@
-# Skin Lesion Segmentation — Mole Border Detection
+# Skin-Lesion Segmentation - Mole Border Detection
 
 ## Objective
 
-Develop an **image processing pipeline** to automatically segment skin moles from dermoscopic images and extract their borders. This is a critical step in computer-aided diagnosis of melanoma, where asymmetry and border irregularity are key diagnostic features.
+Build an unsupervised image-processing pipeline that proposes a skin-lesion region and extracts its border from a dermoscopic image. It demonstrates how clustering and spatial filters can transform raw pixels into a candidate contour for later analysis.
 
-## Dataset
+## Data
 
-| Property | Value |
-|----------|-------|
-| **Type** | Dermoscopic images (RGB, JPEG) |
-| **Categories** | `low_risk`, `medium_risk`, `melanoma` |
-| **Total Images** | 56 |
-
-## Techniques
-
-| Method | Description |
-|--------|-------------|
-| **Grayscale Conversion** | RGB to single-channel intensity |
-| **K-Means Clustering** | Color quantization into 3 clusters to separate skin, mole, and background |
-| **DBSCAN** | Density-based spatial clustering to identify the mole region among dark pixel groups |
-| **Median Filtering** | Spatial smoothing to remove noise from the segmentation mask |
-| **Sobel Edge Detection** | Gradient-based border extraction using horizontal and vertical Sobel kernels |
+The repository contains 56 JPEG images organized as `low_risk`, `medium_risk` and `melanoma`. The original source and redistribution terms are not documented in the available project material; see [DATASETS.md](../DATASETS.md). These folder labels are not used to train or clinically validate the segmentation algorithm.
 
 ## Pipeline
 
+```text
+RGB image -> grayscale -> K-Means with three intensity clusters
+-> select darkest cluster -> DBSCAN spatial grouping
+-> choose cluster nearest the image center -> crop
+-> median filter -> Sobel gradients -> border overlay
 ```
-Load Image → Grayscale → K-Means (3 clusters)
-→ Select Darkest Cluster → DBSCAN (spatial grouping)
-→ Select Cluster Closest to Image Center → Crop
-→ Median Filter (smoothing) → Sobel Filters → Border Overlay
-```
 
-## Key Results
+| Component | Role |
+| --- | --- |
+| K-Means | Separates pixels into coarse intensity groups |
+| DBSCAN | Groups candidate dark pixels by spatial density |
+| Center heuristic | Selects one candidate lesion region |
+| Median filter | Reduces isolated mask noise |
+| Sobel filters | Extract the proposed border |
 
-- The pipeline successfully segments moles across all risk categories
-- **DBSCAN** effectively separates the true mole from artifacts (hair, ruler marks) by leveraging spatial density
-- The **Sobel-based border** accurately delineates the mole contour for further morphological analysis
-- Cluster selection based on proximity to image center provides a robust heuristic
+## Interpretation and limitations
 
-## How to Run
+The output is a qualitative candidate segmentation. The repository contains no expert reference masks, so accuracy, sensitivity and border error cannot be measured. Hair, rulers, off-center lesions, uneven illumination and multiple dark regions can break the center-and-intensity heuristics. The pipeline is educational and must not be used for melanoma screening or diagnosis.
+
+## Run
 
 ```bash
 cd 04_mole_segmentation
 python mole_segmentation.py
 ```
 
-## Files
-
 | File | Description |
-|------|-------------|
-| `mole_segmentation.py` | Main segmentation pipeline |
-| `mole_segmentation.ipynb` | Jupyter notebook with visual outputs |
-| `data/images/` | Dermoscopic images (56 samples) |
+| --- | --- |
+| `mole_segmentation.py` | Segmentation and border-extraction pipeline |
+| `data/images/` | The 56 dermoscopic input images |

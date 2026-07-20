@@ -1,15 +1,16 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import GroupShuffleSplit
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils import minimization as mymin
 
-matricola_seed = 306457  # Student ID (used as random seed)
+RANDOM_SEED = 42
 csv_path = os.path.join(os.path.dirname(__file__), "data", "parkinsons_updrs.csv")
 
 class UPDRS:
-    def __init__(self, seed=matricola_seed):
+    def __init__(self, seed=RANDOM_SEED):
         self.seed = seed
         #self.results = {} # To store w_hat, errors, etc.
         
@@ -18,7 +19,7 @@ class UPDRS:
         plt.close('all')
 
     # Loads data and plots the covariance matrix 
-    def load_and_explore(self):
+    def load_and_explore(self, plot=True):
         # Read the dataset
         self.X = pd.read_csv(csv_path) # read the dataset; x is a Pandas dataframe
         features = list(self.X.columns) # list of features in the dataset
@@ -29,6 +30,9 @@ class UPDRS:
         print(f"Features: {len(features)}")
         #print(self.X.describe().T)
         #print(self.X.info())
+
+        if not plot:
+            return
 
         # Measure and show covariance matrix
         Xnorm = (self.X - self.X.mean()) / self.X.std() # normalized/standardized/scaled data
@@ -53,54 +57,78 @@ class UPDRS:
         plt.savefig('./UPDRS_corr_coeff.png')
         plt.draw()
 
-    #% shuffle, split, normalize, drop features (in this Lab we use the motor_UPDRS)
-    def prepare_data(self, shuffle=True):
+    # Split by patient into train/validation/test, then normalize using training data only.
+    def prepare_data(self):
+        groups = self.X['subject#'].to_numpy()
+        first_split = GroupShuffleSplit(
+            n_splits=1,
+            train_size=0.4,
+            random_state=self.seed,
+        )
+        train_idx, remaining_idx = next(first_split.split(self.X, groups=groups))
 
-        Np, Nc = self.X.shape
+        remaining = self.X.iloc[remaining_idx]
+        remaining_groups = remaining['subject#'].to_numpy()
+        second_split = GroupShuffleSplit(
+            n_splits=1,
+            train_size=1 / 3,
+            random_state=self.seed + 1,
+        )
+        val_rel_idx, test_rel_idx = next(
+            second_split.split(remaining, groups=remaining_groups)
+        )
+        val_idx = remaining_idx[val_rel_idx]
+        test_idx = remaining_idx[test_rel_idx]
 
-        # 1. Shuffle:  the original dataset is ordered by patients ID and contain different test for every patients,
-        # shuffling it we avoid to learn to weel about a single patients (overfitting)
-        Xsh = self.X.sample(frac=1, replace=False, random_state=self.seed, axis=0, ignore_index=True)
+        X_tr = self.X.iloc[train_idx].copy()
+        X_va = self.X.iloc[val_idx].copy()
+        X_te = self.X.iloc[test_idx].copy()
 
-        # 2. Split into training, validation and test set
-        Ntr = int(Np * 0.4) # number of training points
-        Nva = int(Np * 0.2) # number of validation points
-        Nte = Np - Ntr - Nva # number of test points
+        self.train_subjects = set(X_tr['subject#'].unique())
+        self.validation_subjects = set(X_va['subject#'].unique())
+        self.test_subjects = set(X_te['subject#'].unique())
+        if (
+            self.train_subjects & self.validation_subjects
+            or self.train_subjects & self.test_subjects
+            or self.validation_subjects & self.test_subjects
+        ):
+            raise RuntimeError("Patient leakage detected across data partitions")
 
-        # 3. evaluate mean and st.dev. for Training Data Only
-        X_tr = Xsh[0:Ntr] # dataframe that contains only the training data
-        self.mm = X_tr.mean() # mean (series) of each feature
-        self.ss = X_tr.std() # standard deviation (series) of each feature
+        print(
+            "Patient-level split: "
+            f"{len(self.train_subjects)} train / "
+            f"{len(self.validation_subjects)} validation / "
+            f"{len(self.test_subjects)} test subjects (overlap: 0)"
+        )
+
+        # Evaluate normalization parameters from training data only.
+        self.mm = X_tr.mean()
+        self.ss = X_tr.std()
         self.my = self.mm['total_UPDRS'] # mean of regressand/total UPDRS (for later use)
         self.sy = self.ss['total_UPDRS'] # st.dev of regressand/total UPDRS (for later use)
 
-        # 4. Normalize (Scaled training and test datasets)
-        Xsh_norm = (Xsh - self.mm) / self.ss # normalized data
-        ysh_norm = Xsh_norm['total_UPDRS']
-        
-        # 5. Drop Features 
-        Xsh_norm = Xsh_norm.drop(['total_UPDRS', 'subject#'], axis=1) # regressors only
-        Xsh_norm = Xsh_norm.drop(['Jitter:DDP', 'Shimmer:DDA'], axis=1) # drop Jitter and Shimmer to avoid collinearity
-        if 'test_time' in Xsh_norm.columns:
-            Xsh_norm = Xsh_norm.drop(['test_time'], axis=1)
-        
-        self.regressors = list(Xsh_norm.columns)
+        # Exclude identifiers, collinear measures and motor_UPDRS, which is a
+        # closely related clinical score and would make total_UPDRS prediction
+        # unrealistically easy for a voice-biomarker experiment.
+        drop_list = [
+            'total_UPDRS',
+            'motor_UPDRS',
+            'subject#',
+            'test_time',
+            'Jitter:DDP',
+            'Shimmer:DDA',
+        ]
+        self.regressors = [column for column in self.X.columns if column not in drop_list]
         self.Nf = len(self.regressors) # number of regressors
         print("After dropping, the new regressors are: ", len(self.regressors))
         print(self.regressors)
-        
-        # DataFrame -> Numpy
-        Xsh_norm = Xsh_norm.values # from dataframe to Ndarray
-        ysh_norm = ysh_norm.values # from dataframe to Ndarray
 
-        # split numpy
-        self.X_tr_norm = Xsh_norm[0:Ntr] # regressors for training phase
-        self.X_va_norm = Xsh_norm[Ntr:Ntr + Nva] # regressor for validation phase
-        self.X_te_norm = Xsh_norm[Ntr + Nva:] # regressors for test phase
-        
-        self.y_tr_norm = ysh_norm[0:Ntr] # regressand for training phase
-        self.y_va_norm = ysh_norm[Ntr: Ntr + Nva] # regressand for validation phase
-        self.y_te_norm = ysh_norm[Ntr + Nva:] # regressand for test phase
+        self.X_tr_norm = ((X_tr[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
+        self.X_va_norm = ((X_va[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
+        self.X_te_norm = ((X_te[self.regressors] - self.mm[self.regressors]) / self.ss[self.regressors]).to_numpy()
+        self.y_tr_norm = ((X_tr['total_UPDRS'] - self.my) / self.sy).to_numpy()
+        self.y_va_norm = ((X_va['total_UPDRS'] - self.my) / self.sy).to_numpy()
+        self.y_te_norm = ((X_te['total_UPDRS'] - self.my) / self.sy).to_numpy()
 
         print('The training set shape is {}, The validation set shape is {}, The test set shape is {}'.format(self.X_tr_norm.shape, self.X_va_norm.shape, self.X_te_norm.shape))
     
@@ -110,7 +138,7 @@ class UPDRS:
     
 
     def fixed_k(self, K, eps):
-        self.eps = 1e-8
+        self.eps = eps
         n = self.X_va_norm.shape[0]
         y_hat_va_norm = np.zeros(n, dtype=float)
         for i in range(n):
@@ -121,7 +149,7 @@ class UPDRS:
             y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
             F = A.shape[1]
             I = np.eye(F)
-            w_hat = np.linalg.inv(A.T @ A + eps * I) @ (A.T @ y)   # (F,1) eps is a term add to be sure that the matrix will be always inverted (ridge regression)
+            w_hat = np.linalg.solve(A.T @ A + eps * I, A.T @ y)
             
             y_hat_va_norm[i] = (x @ w_hat).item()
             
@@ -168,7 +196,7 @@ class UPDRS:
             y = self.y_tr_norm[idx].reshape(-1, 1)        # (K, 1)
             F = A.shape[1]
             I = np.eye(F)
-            w_hat = np.linalg.inv(A.T @ A + self.eps * I) @ (A.T @ y)   # (F,1)
+            w_hat = np.linalg.solve(A.T @ A + self.eps * I, A.T @ y)
             y_hat_te_norm[i] = (x @ w_hat).item()
         
         # De-normalization
@@ -252,7 +280,7 @@ class UPDRS:
 if __name__ == "__main__":
     lab = UPDRS()
     lab.load_and_explore()
-    lab.prepare_data(shuffle=True)
+    lab.prepare_data()
     lab.fixed_k(20, 1e-8)
     lab.optimized_k(17, 100, 3)
     lab.test()
