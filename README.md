@@ -1,4 +1,4 @@
-# Machine Learning for Health Labs
+# 🧠 Machine Learning for Healthcare
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white)](https://numpy.org/)
@@ -70,7 +70,7 @@ This repository contains 7 laboratory projects spanning the full ML pipeline —
 ## 📁 Project Structure
 
 ```
-ICTE4SS-Machine-Learning-Labs/
+Machine-Learning-for-Healthcare/
 ├── README.md
 ├── .gitignore
 ├── requirements.txt
