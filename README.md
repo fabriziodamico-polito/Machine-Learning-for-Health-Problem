@@ -1,4 +1,4 @@
-# 🧠 ICTE4SS — Machine Learning Labs
+# Machine Learning for Health Labs
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white)](https://numpy.org/)
