@@ -109,5 +109,5 @@ The [`utils/minimization.py`](./utils/minimization.py) module provides a reusabl
 | ------------------ | ---------------- | --------------------------------------------------------------- |
 | `SolveMinProbl`  | —               | Abstract base class with common plotting and printing           |
 | `SolveLLS`       | Closed-form      | $(A^T A)^{-1} A^T y$                                          |
-| `SolveGrad`      | Gradient Descent | Fixed learning rate$\gamma$                                   |
+| `SolveGrad`      | Gradient Descent | Fixed learning rate $\gamma$                                   |
 | `SolveSteepDesc` | Steepest Descent | Adaptive $\gamma_k = \|\nabla J\|^2 / (\nabla J^T H \nabla J)$ |
