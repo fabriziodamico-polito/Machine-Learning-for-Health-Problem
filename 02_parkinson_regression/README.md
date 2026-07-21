@@ -1,54 +1,55 @@
-# Parkinson's Disease Progression — Linear Regression
+# Parkinson's Disease Progression - Linear Regression
 
 ## Objective
 
-Predict the **total UPDRS score** (Unified Parkinson's Disease Rating Scale) from voice biomarkers using linear regression methods, and compare the performance of **closed-form LLS** versus **Steepest Descent**.
+Predict `total_UPDRS`, a measure of Parkinson's disease severity, from remotely collected voice biomarkers. The lab compares a closed-form linear least-squares solution with an iterative steepest-descent solver.
+
+The central evaluation question is whether the relationship learned from some patients transfers to people the model has never seen.
 
 ## Dataset
 
 | Property | Value |
-|----------|-------|
-| **Source** | [UCI Machine Learning Repository — Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) |
-| **Samples** | ~5,875 voice recordings |
-| **Features** | 16 voice measures (jitter, shimmer, HNR, etc.) |
-| **Target** | `total_UPDRS` (continuous, 7–55) |
+| --- | --- |
+| Source | [UCI Parkinsons Telemonitoring](https://archive.ics.uci.edu/dataset/189/parkinson) |
+| Repository subset | 990 recordings from 42 subjects |
+| Predictors | Voice measures plus age and sex |
+| Target | `total_UPDRS` |
+| License | CC BY 4.0; see [DATASETS.md](../DATASETS.md) |
 
-## Techniques
+The upstream UCI dataset contains 5,875 recordings. The origin of the 990-row course subset stored here is not documented, so results should be interpreted as specific to this repository copy.
 
-| Method | Description |
-|--------|-------------|
-| **Data Normalization** | Z-score standardization (mean=0, std=1) computed on training set only |
-| **Feature Selection** | Removal of collinear features (`Jitter:DDP`, `Shimmer:DDA`) and identifiers (`subject#`) |
-| **Linear Least Squares (LLS)** | Closed-form solution for the weight vector |
-| **Steepest Descent (SD)** | Iterative optimization with adaptive learning rate |
-| **Evaluation Metrics** | MSE, R², Pearson correlation coefficient |
+## Leakage-safe pipeline
 
-## Pipeline
-
-```
-Load CSV → Correlation Analysis → Shuffle → Split (50/50)
-→ Normalize (training stats only) → Drop Features
-→ Solve (LLS & SD) → De-normalize → Evaluate & Compare
+```text
+Load data -> split by subject (21 train / 21 test)
+-> fit normalization on training patients only
+-> remove identifiers, collinear features and target proxy
+-> fit LLS and Steepest Descent -> evaluate on unseen patients
 ```
 
-## Key Results
+- A subject's repeated recordings remain in exactly one partition.
+- `motor_UPDRS` is excluded because it is a closely related clinical score and would act as a target proxy.
+- `test_time` is excluded so the experiment is consistent with a voice-biomarker prediction task.
+- Normalization statistics are learned from the training partition only.
+- A fixed seed makes the experiment reproducible.
 
-- Both LLS and SD converge to **virtually identical** weight vectors
-- R² ≈ 0.58 on the test set, indicating moderate predictive power
-- `motor_UPDRS` is the most influential predictor when included
-- Error distributions are approximately Gaussian and centered near zero
+## Verified results
 
-## How to Run
+| Model | Test MSE | Test R-squared | Pearson correlation |
+| --- | ---: | ---: | ---: |
+| Linear Least Squares | 254.86 | -1.32 | 0.06 |
+| Steepest Descent | 248.91 | -1.26 | 0.06 |
+
+The two solvers reach similar solutions, but neither generalizes well to unseen subjects. The negative test R-squared means that, on this split, both models perform worse than predicting the test-set mean. This is a useful result: a row-level random split would mix recordings from the same patients and make performance look substantially more optimistic.
+
+## Run
 
 ```bash
 cd 02_parkinson_regression
 python parkinson_regression.py
 ```
 
-## Files
-
 | File | Description |
-|------|-------------|
-| `parkinson_regression.py` | Main analysis script (OOP-based) |
-| `parkinson_regression.ipynb` | Jupyter notebook with inline outputs |
-| `data/parkinsons_updrs.csv` | Dataset |
+| --- | --- |
+| `parkinson_regression.py` | Patient-isolated regression experiment |
+| `data/parkinsons_updrs.csv` | Course subset used by the script |

@@ -16,7 +16,7 @@ from scipy import stats
 from scipy.special import erfc, erfcinv
 
 #%%
-np.random.seed(360457)  # set the seed to reproduce the experiment
+np.random.seed(42)  # fixed neutral seed for reproducibility
 plt.close('all')
 Ns = 10000 # number of samples
 mu = 5 # desired mean

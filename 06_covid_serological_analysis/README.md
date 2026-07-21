@@ -1,55 +1,45 @@
-# COVID-19 Serological Test Evaluation — ROC Analysis
+# COVID-19 Serological Test Evaluation - ROC Analysis
 
 ## Objective
 
-Evaluate the diagnostic performance of two **IgG serological tests** for COVID-19 by computing **ROC curves**, **AUC scores**, and determining the **optimal classification threshold** using Youden's J statistic.
+Compare two IgG serological measurements against a PCR swab reference using ROC curves, area under the curve (AUC) and Youden's J threshold selection. Bootstrap confidence intervals make the sampling uncertainty around each AUC visible.
 
 ## Dataset
 
 | Property | Value |
-|----------|-------|
-| **Source** | COVID-19 serological study |
-| **Samples** | ~300 patients (after outlier removal) |
-| **Features** | `IgG_Test1_titre`, `IgG_Test2_titre` |
-| **Ground Truth** | `COVID_swab_res` (PCR swab result: 0=negative, 1=positive) |
-
-## Techniques
-
-| Method | Description |
-|--------|-------------|
-| **DBSCAN Outlier Removal** | Density-based filtering on normalized IgG values to remove measurement anomalies |
-| **Sensitivity & Specificity** | Computed across all possible thresholds |
-| **ROC Curve** | Trade-off visualization: True Positive Rate vs False Positive Rate |
-| **AUC** | Area Under the ROC Curve — computed both manually (trapezoidal rule) and via scikit-learn |
-| **Youden's J Statistic** | $J = \text{Sensitivity} - \text{FPR}$, maximized to find the optimal threshold |
+| --- | --- |
+| Primary observations | 862 with known binary swab labels |
+| Sensitivity cohort | 829 after DBSCAN outlier filtering |
+| Measurements | `IgG_Test1_titre`, `IgG_Test2_titre` |
+| Reference | `COVID_swab_res` (0 negative, 1 positive) |
+| Provenance | Original study and redistribution terms are not documented; see [DATASETS.md](../DATASETS.md) |
 
 ## Pipeline
 
+```text
+Load table -> remove uncertain swab results
+-> calculate primary ROC/AUC on every known-label sample
+-> stratified bootstrap 95% AUC interval -> exploratory Youden threshold
+-> report DBSCAN-filtered AUC separately as a sensitivity analysis
 ```
-Load CSV → Remove Uncertain Swab Results → DBSCAN Outlier Removal
-→ Compute Sensitivity & Specificity for All Thresholds
-→ Plot ROC Curve → Compute AUC → Optimize Threshold (Youden's J)
-→ Compare Test 1 vs Test 2
-```
 
-## Key Results
+## Verified results
 
-- Both tests show strong discriminative ability (AUC > 0.9)
-- **Test 2** generally achieves a higher AUC than Test 1
-- The optimal threshold balances sensitivity and specificity according to Youden's criterion
-- Manual AUC computation matches scikit-learn's implementation, validating the methodology
+| Measurement | Primary AUC | Bootstrap 95% CI | Youden threshold | DBSCAN-filtered AUC |
+| --- | ---: | ---: | ---: | ---: |
+| Test 1 | 0.943 | 0.913-0.968 | 7.71 | 0.948 |
+| Test 2 | 0.936 | 0.906-0.961 | 0.32 | 0.938 |
 
-## How to Run
+Manual trapezoidal integration is checked against scikit-learn's AUC implementation. ROC operating points use the same inclusive threshold convention as scikit-learn. Thresholds are still selected and evaluated on the same retrospective table, so they remain exploratory rather than deployment-ready cutoffs. Independent cohorts and a prespecified protocol would be needed for clinical validation.
+
+## Run
 
 ```bash
 cd 06_covid_serological_analysis
 python covid_roc_analysis.py
 ```
 
-## Files
-
 | File | Description |
-|------|-------------|
-| `covid_roc_analysis.py` | Main ROC analysis pipeline |
-| `covid_roc_analysis.ipynb` | Jupyter notebook with inline plots |
-| `data/covid_serological_results.csv` | Serological test results |
+| --- | --- |
+| `covid_roc_analysis.py` | ROC analysis, bootstrap uncertainty and plots |
+| `data/covid_serological_results.csv` | Serological measurement table |
