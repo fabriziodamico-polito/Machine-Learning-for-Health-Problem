@@ -41,7 +41,7 @@ class UPDRS:
         plt.colorbar()
         plt.title('Correlation coefficients (Original Data)')
         plt.tight_layout()
-        plt.savefig('./corr_coeff.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'corr_coeff.png'))
         plt.draw()
 
         plt.figure()
@@ -50,7 +50,7 @@ class UPDRS:
         plt.xticks(np.arange(len(features)), features, rotation=90)
         plt.title('Corr. coeff. total_UPDRS vs other features')
         plt.tight_layout()
-        plt.savefig('./UPDRS_corr_coeff.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'UPDRS_corr_coeff.png'))
         plt.draw()
 
     #% shuffle, split, normalize, drop features (in this Lab we use the motor_UPDRS)
@@ -59,7 +59,7 @@ class UPDRS:
         Np, Nc = self.X.shape
 
         # 1. Shuffle:  the original dataset is ordered by patients ID and contain different test for every patients,
-        # shuffling it we avoid to learn to weel about a single patients (overfitting)
+        # shuffling it we avoid to learn too well about a single patient (overfitting)
         Xsh = self.X.sample(frac=1, replace=False, random_state=self.seed, axis=0, ignore_index=True)
 
         # 2. Split into training, validation and test set
@@ -147,7 +147,7 @@ class UPDRS:
         plt.title('MSE vs K (validation)')
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig('./K_optimization.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'K_optimization.png'))
         plt.draw()
     
         print(f"[optimized_k] Best K = {self.K_opt}  |  MSE_val (norm) = {mse_min:.6f}")
@@ -238,7 +238,7 @@ class UPDRS:
         plt.ylabel('Predicted Values')
         plt.title(f'Regression Line ({label})')
         plt.grid()
-        plt.savefig(f'regression_line_{label.replace(" ", "_")}.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'regression_line_{label.replace(" ", "_")}.png'))
         
         plt.figure()
         plt.hist(e, bins=20, edgecolor='black')
@@ -246,7 +246,7 @@ class UPDRS:
         plt.ylabel('Frequency')
         plt.title(f'Error Histogram ({label})')
         plt.grid()
-        plt.savefig(f'error_hist_{label.replace(" ", "_")}.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'error_hist_{label.replace(" ", "_")}.png'))
     
 #% main
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# generate samples drawn from a Gaussian random variable using the two techniuqes:
+# generate samples drawn from a Gaussian random variable using the two techniques:
 #    Box-Muller (exact)
 #    Central limit theorem (approximate)
 # Check the Gaussianity of the obtained vector by
@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.special import erfc, erfcinv
+import os
 
 #%%
 np.random.seed(360457)  # set the seed to reproduce the experiment
@@ -54,6 +55,7 @@ if case=="central-limit":
     plt.grid()
     plt.legend()
     plt.tight_layout()
+    plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'clt_histogram.png'), dpi=150)
 if case == "Box-Muller":
     xUnif=np.random.rand(Ns,2) # uniformly distributed in [0,1]
     sigma2 = sigma**2 # desired variance
@@ -78,6 +80,7 @@ plt.ylabel("P(x <= u)")
 plt.title("Cumulative Distribution Function (CDF)")
 plt.legend()
 plt.grid()
+plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'cdf_comparison.png'), dpi=150)
 
 #%% Normal probability plot
 n = 20 # number of quantiles to plot
@@ -96,6 +99,7 @@ plt.ylabel('x_q (meas)')
 plt.title('Normal probability plot')
 plt.legend()
 plt.grid()
+plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'qq_plot.png'), dpi=150)
 
 #%% t-score
 def tsco(x,mu):
@@ -118,7 +122,7 @@ def exc_kurt(x):
     A = (N-1)/(N-2)/(N-3)*((N+1)*k0-3*(N-1));
     return A
 ku = exc_kurt(x)
-print('absolute vlue of excess kurtosis for x is ',np.abs(ku))
+print('absolute value of excess kurtosis for x is ',np.abs(ku))
 
 #%% Anderson-Darling test
 def A_D(x,mu,sigma):
@@ -189,5 +193,6 @@ plt.xlabel('x')
 plt.ylabel('P(|X|>x)')
 plt.legend()
 plt.title('Anderson-Darling test')
+plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'anderson_darling.png'), dpi=150)
 plt.show()
     

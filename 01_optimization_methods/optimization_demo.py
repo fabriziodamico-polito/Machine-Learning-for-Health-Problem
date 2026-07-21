@@ -10,6 +10,9 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils import minimization as mymin
 import numpy as np
+import matplotlib.pyplot as plt
+
+results_dir = os.path.join(os.path.dirname(__file__), 'results')
 
 #LLS
 Np = 100 #number of rows
@@ -21,17 +24,20 @@ m = mymin.SolveLLS(y,A) # instantiate the object
 m.run() #run LLS
 m.print_result("LLS") # print the results ( inherited method)
 m.plot_what("LLS")# plot what ( inherited method)
+plt.savefig(os.path.join(results_dir, 'lls_weights.png'))
 
 #GA
 Nit = 1000 # number of steps for the gradient algorithm
 gamma = 1e-5 # learning rate for the gradient algorithm
-g=mymin. SolveGrad(y,A) # instantiate SolveGrad
+g=mymin.SolveGrad(y,A) # instantiate SolveGrad
 g.run(gamma, Nit ) # run SolveGrad
 g.print_result ( "Gradient algorithm") # inherited method
 logx = 0 # we want a natural scale on the x−axis
 logy = 1 # we want a logarithmic scale on the y−axis
 g.plot_err ( "Gradient algorithm : square error " ,logy , logx) # inherited method
+plt.savefig(os.path.join(results_dir, 'gd_convergence.png'))
 g.plot_what ( "Gradient algorithm ") # inherited method
+plt.savefig(os.path.join(results_dir, 'gd_weights.png'))
 
 #SDM
 Nit = 1000
@@ -40,3 +46,4 @@ s = mymin.SolveSteepDesc(y,A)
 s.run(Nit,tol)
 s.print_result("Steepest Descent")
 s.plot_what("Steepest Descent")
+plt.savefig(os.path.join(results_dir, 'sd_weights.png'))

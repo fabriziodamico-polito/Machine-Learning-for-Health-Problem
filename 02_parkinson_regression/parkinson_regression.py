@@ -41,7 +41,7 @@ class ParkinsonUPDRS:
         plt.colorbar()
         plt.title('Correlation coefficients (Original Data)')
         plt.tight_layout()
-        plt.savefig('./corr_coeff.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'corr_coeff.png'))
         plt.draw()
 
         plt.figure()
@@ -50,10 +50,10 @@ class ParkinsonUPDRS:
         plt.xticks(np.arange(len(features)), features, rotation=90)
         plt.title('Corr. coeff. total_UPDRS vs other features')
         plt.tight_layout()
-        plt.savefig('./UPDRS_corr_coeff.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'UPDRS_corr_coeff.png'))
         plt.draw()
 
-    # Suffle, split, normalizes, drop features
+    # Shuffle, split, normalize, drop features
     def prepare_data(self, shuffle=True, include_motor=True):
 
         Np, Nc = self.X.shape
@@ -164,7 +164,7 @@ class ParkinsonUPDRS:
         plt.grid()
         plt.title(f'{method}-Error histograms')
         plt.tight_layout()
-        plt.savefig(f'./{method}-hist.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'{method}-hist.png'))
         plt.draw()
 
         # Plot Regression Line
@@ -179,7 +179,7 @@ class ParkinsonUPDRS:
         plt.grid()
         plt.title(f'{method}-test')
         plt.tight_layout()
-        plt.savefig(f'./{method}-yhat_vs_y.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'{method}-yhat_vs_y.png'))
         plt.draw()
 
         # 6. Statistics Table (Professor's Code)

@@ -23,18 +23,30 @@ This lab introduces the Object-Oriented Programming (OOP) framework used through
 - Each solver estimates $\hat{w}$ and compares it against the ground truth
 - The shared `SolveMinProbl` base class (in `utils/minimization.py`) provides common functionality via inheritance
 
-## Key Results
+## Results
 
-- **LLS** recovers the exact solution in one step (as expected for noiseless data)
-- **Gradient Descent** converges to the solution, with convergence rate depending on $\gamma$
-- **Steepest Descent** converges faster than GD thanks to the adaptive step size, and is less sensitive to hyperparameter tuning
+### LLS — Exact Recovery
+LLS recovers the exact solution in one step (as expected for a noiseless system).
 
-## How to Run
+<img src="./results/lls_weights.png" width="500"/>
 
-```bash
-cd 01_optimization_methods
-python optimization_demo.py
-```
+### Gradient Descent — Convergence
+GD converges to the solution, with speed depending on the learning rate $\gamma = 10^{-5}$.
+
+| | |
+|:---:|:---:|
+| <img src="./results/gd_convergence.png" width="400"/> | <img src="./results/gd_weights.png" width="400"/> |
+| Squared error vs iterations (log scale) | Estimated weights |
+
+### Steepest Descent — Adaptive Learning Rate
+SD converges faster than GD thanks to the optimal adaptive step size. It matches the LLS solution exactly.
+
+<img src="./results/sd_weights.png" width="500"/>
+
+### Key Observations
+- **LLS** and **SD** recover the exact same weight vector — confirming SD convergence
+- **GD** with $\gamma = 10^{-5}$ converges but hasn't fully reached the optimum at 1000 iterations
+- SD is less sensitive to hyperparameter tuning since $\gamma$ is computed optimally at each step
 
 ## Files
 

@@ -67,42 +67,6 @@ This repository contains 7 laboratory projects spanning the full ML pipeline —
 
 ---
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python 3.10+
-- pip
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/<your-username>/ICTE4SS-Machine-Learning-Labs.git
-cd ICTE4SS-Machine-Learning-Labs
-
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-.venv\Scripts\activate       # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Running a Lab
-
-Each lab is self-contained. Navigate to the desired folder and run:
-
-```bash
-cd 02_parkinson_regression
-python parkinson_regression.py
-```
-
-
-
----
-
 ## 📁 Project Structure
 
 ```

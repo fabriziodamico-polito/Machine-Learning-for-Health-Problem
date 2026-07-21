@@ -53,3 +53,4 @@ desktop.ini
 *.png
 *.jpg
 !04_mole_segmentation/data/images/*.jpg
+!**/results/*.png

@@ -61,6 +61,7 @@ class Moles():
             plt.figure()
             plt.imshow(im_quant,cmap='gray',interpolation=None)
             plt.title('image with quantized colors (after K-Means)')
+            plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'kmeans_quantized.png'))
 
     def DBSCAN(self):
         ## Find the likely position of the mole using DBSCAN
@@ -137,6 +138,7 @@ class Moles():
             plt.figure()
             plt.imshow(self.im_mole_pos,cmap='gray',interpolation=None)
             plt.title('original size image, mole position')
+            plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'dbscan_mole_position.png'))
 
     def crop(self):
         ## Find the cropped original image
@@ -174,7 +176,8 @@ class Moles():
         if self.plotfig:     
             plt.figure()      
             plt.imshow(self.im_cropped_mole_pos_filt,cmap='gray',interpolation=None)  
-            plt.title('smoothed cropped image, mole position')       
+            plt.title('smoothed cropped image, mole position')
+            plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'smoothed_mole.png'))       
     
     def sobel_filters(self):
         ## Apply Sobel filters
@@ -224,6 +227,8 @@ class Moles():
         plt.figure()
         plt.imshow(self.im_cropped_col, interpolation='none')
         plt.imshow(border,cmap='gray', interpolation='none', alpha=0.2)
+        plt.title('Mole border detection')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'border_overlay.png'))
 
 if __name__ == '__main__':
     mole = Moles(plotfig = True, image_title = 'medium_risk_4.jpg' )

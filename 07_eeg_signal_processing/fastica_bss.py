@@ -6,6 +6,7 @@ from scipy import signal
 import matplotlib.pyplot as plt
 from sklearn.decomposition import FastICA, PCA
 from matplotlib.pyplot import cm
+import os
 
 np.random.seed(50)  # set the seed to reproduce the experiment
 
@@ -43,6 +44,7 @@ for n in range(N_signals):
     plt.legend()
 plt.xlabel('t (s)')
 plt.tight_layout()
+plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'original_signals.png'), dpi=150)
 
 #%% Generate the observed/mixed signals
 A = np.random.randn(N_signals,N_signals)  # true weight matrix (random)
@@ -58,6 +60,7 @@ for n in range(N_signals):
     plt.legend()
 plt.xlabel('t (s)')
 plt.tight_layout()
+plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'mixed_signals.png'), dpi=150)
 #%% reshape
 X=X.T #shape: N rows, 4 columns 
 Y=Y.T #shape: N rows, 4 columns 
@@ -120,6 +123,8 @@ for n in range(N_signals):
     plt.grid()
     plt.legend()
 plt.xlabel('t (s)')
+plt.tight_layout()
+plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'ica_recovered.png'), dpi=150)
 color = iter(cm.Set1(np.linspace(0, 1,N_signals)))
 plt.figure()
 for n in range(N_signals):
@@ -130,4 +135,6 @@ for n in range(N_signals):
     plt.grid()
     plt.legend()
 plt.xlabel('t (s)')
+plt.tight_layout()
+plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'pca_components.png'), dpi=150)
 plt.show()

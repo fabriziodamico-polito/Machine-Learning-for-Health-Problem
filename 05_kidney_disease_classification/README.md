@@ -1,57 +1,55 @@
-# Chronic Kidney Disease — Classification with Missing Data
+# Chronic Kidney Disease Classification
 
 ## Objective
 
-Build a classification system to predict **Chronic Kidney Disease (CKD)** from clinical and laboratory features, addressing the real-world challenge of **missing data** through two imputation strategies: **regression-based (LLS)** and **median imputation**.
+Classify patients as **CKD** (Chronic Kidney Disease) or **not CKD** using Decision Trees and Random Forests, with a focus on handling **missing data** through regression-based imputation (LLS) vs. median imputation.
 
 ## Dataset
 
-| Property | Value |
-|----------|-------|
-| **Source** | [UCI Machine Learning Repository — Chronic Kidney Disease](https://archive.ics.uci.edu/ml/datasets/Chronic_Kidney_Disease) |
-| **Samples** | 400 patients |
-| **Features** | 24 (11 numeric + 13 categorical) |
-| **Target** | `classk` (binary: CKD / not CKD) |
-| **Missing Values** | Significant — up to 6 missing features per row |
+[Chronic Kidney Disease](https://archive.ics.uci.edu/ml/datasets/Chronic_Kidney_Disease) — 400 patients, 24 features (numerical + categorical), with significant missing values (up to 12 missing features per row).
 
-## Techniques
+## Approach
 
-| Method | Description |
-|--------|-------------|
-| **LLS Regression Imputation** | For each incomplete row, train a local LLS model on complete rows using available features to predict missing ones |
-| **Median Imputation** | Replace each missing value with the median from the complete training subset |
-| **Categorical Rounding** | After regression, map continuous predictions back to the nearest valid categorical value |
-| **CART Decision Tree** | Entropy-based splitting criterion for interpretable classification |
-| **Random Forest** | Ensemble of 100/1000 decision trees for robust predictions |
-| **Evaluation** | Accuracy, confusion matrix, feature importance ranking |
+### Missing Data Strategies
+1. **LLS Regression Imputation** (`x_new`): For each patient with missing values, train a local LLS model using the complete-case subset to predict the missing features from the available ones. Categorical features are then snapped to their nearest valid value.
+2. **Median Imputation** (`y_new`): Simply replace each missing value with the median of that feature from the training set.
 
-## Pipeline
+### Classification Models
+- **CART Decision Tree** — Entropy-based splitting for interpretable models
+- **Random Forest** — Ensemble of 100–1000 trees for improved accuracy
 
-```
-Load ARFF → Map Categoricals → Analyze Missing Patterns
-→ Extract Complete Rows (Training) → Regression Imputation (x_new)
-→ Median Imputation (y_new) → Train Decision Tree & Random Forest
-→ Compare Imputation Strategies → Split Experiment on y_new
-```
+## Results
 
-## Key Results
+### Decision Tree Structure
+The trained tree reveals which features are most discriminant for CKD diagnosis:
 
-- Regression imputation (**x_new**) produces distributions closer to the original data compared to median imputation
-- **Random Forest (1000 trees)** achieves the highest accuracy (~98%) on the regression-imputed dataset
-- Decision Tree provides interpretable rules: key features include `hemoglobin`, `specific gravity`, and `albumin`
-- Median imputation (**y_new**) performs comparably due to the dataset's relatively simple separability
+<img src="./results/decision_tree.png" width="700"/>
 
-## How to Run
+### Feature Importance (Random Forest)
+Random Forest identifies the most predictive features across the ensemble:
 
-```bash
-cd 05_kidney_disease_classification
-python kidney_classification.py
-```
+<img src="./results/features_importance.png" width="600"/>
+
+### Classification Accuracy
+
+| Model | Test Set | Accuracy |
+|-------|----------|:--------:|
+| Decision Tree | x_new (LLS imputed) | **92.8%** |
+| Random Forest (100 trees) | x_new (LLS imputed) | **97.7%** |
+| Random Forest (1000 trees) | x_new (LLS imputed) | **96.8%** |
+| Random Forest (100 trees) | y_new (median imputed) | 88.5% |
+| Random Forest (1000 trees) | y_new (median imputed) | 87.8% |
+| Random Forest (1000 trees) | 50/50 split on y_new | **100%** |
+
+### Key Findings
+
+- **LLS imputation dramatically outperforms median imputation** (97.7% vs 88.5% with RF-100), preserving feature correlations that simple median replacement destroys
+- Random Forest improves over a single Decision Tree (97.7% vs 92.8%), leveraging ensemble diversity
+- The 50/50 split experiment achieves 100% accuracy because training and test data come from the same imputed distribution — this highlights the risk of evaluating on non-independent data
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `kidney_classification.py` | Main classification pipeline |
-| `kidney_classification.ipynb` | Jupyter notebook with visual outputs |
-| `data/chronic_kidney_disease.arff` | Dataset in ARFF format |
+| `kidney_classification.py` | Full pipeline: data loading, imputation (LLS + median), Decision Tree, Random Forest |
+| `data/chronic_kidney_disease.arff` | UCI CKD dataset |

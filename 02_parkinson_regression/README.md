@@ -1,54 +1,57 @@
-# Parkinson's Disease Progression — Linear Regression
+# Parkinson's Disease — Linear Regression (LLS & Steepest Descent)
 
 ## Objective
 
-Predict the **total UPDRS score** (Unified Parkinson's Disease Rating Scale) from voice biomarkers using linear regression methods, and compare the performance of **closed-form LLS** versus **Steepest Descent**.
+Predict the **Total UPDRS** score (Unified Parkinson's Disease Rating Scale) from voice recordings and clinical data, comparing **Linear Least Squares** and **Steepest Descent** solvers.
+
+The clinical question: can voice analysis alone replace in-person neurological examinations for monitoring Parkinson's disease remotely?
 
 ## Dataset
 
-| Property | Value |
-|----------|-------|
-| **Source** | [UCI Machine Learning Repository — Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) |
-| **Samples** | ~5,875 voice recordings |
-| **Features** | 16 voice measures (jitter, shimmer, HNR, etc.) |
-| **Target** | `total_UPDRS` (continuous, 7–55) |
-
-## Techniques
-
-| Method | Description |
-|--------|-------------|
-| **Data Normalization** | Z-score standardization (mean=0, std=1) computed on training set only |
-| **Feature Selection** | Removal of collinear features (`Jitter:DDP`, `Shimmer:DDA`) and identifiers (`subject#`) |
-| **Linear Least Squares (LLS)** | Closed-form solution for the weight vector |
-| **Steepest Descent (SD)** | Iterative optimization with adaptive learning rate |
-| **Evaluation Metrics** | MSE, R², Pearson correlation coefficient |
+[Parkinsons Telemonitoring](https://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring) — 990 samples, 42 patients, 22 features including biographical data (age, sex), clinical scores (motor_UPDRS), and voice features (jitter, shimmer, HNR, etc.).
 
 ## Pipeline
 
-```
-Load CSV → Correlation Analysis → Shuffle → Split (50/50)
-→ Normalize (training stats only) → Drop Features
-→ Solve (LLS & SD) → De-normalize → Evaluate & Compare
-```
+1. **Exploratory Analysis** — Correlation matrix and feature analysis
+2. **Preprocessing** — Z-score normalization (computed on training set only), shuffling, 50/50 train-test split
+3. **Feature Engineering** — Dropped `Jitter:DDP` and `Shimmer:DDA` (collinear), excluded `motor_UPDRS` to test voice-only prediction
+4. **Regression** — LLS (closed-form) and Steepest Descent (iterative)
+5. **Evaluation** — MSE, R², correlation coefficient, error histograms
 
-## Key Results
+## Results
 
-- Both LLS and SD converge to **virtually identical** weight vectors
-- R² ≈ 0.58 on the test set, indicating moderate predictive power
-- `motor_UPDRS` is the most influential predictor when included
-- Error distributions are approximately Gaussian and centered near zero
+### Correlation Analysis
+The covariance matrix reveals high collinearity between jitter/shimmer variants and strong correlation between `motor_UPDRS` and `total_UPDRS`.
 
-## How to Run
+| | |
+|:---:|:---:|
+| <img src="./results/corr_coeff.png" width="400"/> | <img src="./results/UPDRS_corr_coeff.png" width="400"/> |
+| Full correlation matrix | Correlation with total_UPDRS |
 
-```bash
-cd 02_parkinson_regression
-python parkinson_regression.py
-```
+### Regression Performance (without motor_UPDRS)
+
+| Metric | Training (LLS) | Test (LLS) | Training (SD) | Test (SD) |
+|--------|:--------------:|:----------:|:-------------:|:---------:|
+| **MSE** | 82.46 | 98.93 | 82.53 | 98.61 |
+| **R²** | 0.257 | 0.160 | 0.256 | 0.162 |
+| **Corr. coeff.** | 0.507 | 0.414 | 0.506 | 0.416 |
+
+### Error Distribution & Regression Scatter (LLS)
+
+| | |
+|:---:|:---:|
+| <img src="./results/LLS-hist.png" width="400"/> | <img src="./results/LLS-yhat_vs_y.png" width="400"/> |
+| Error histogram (training vs test) | Predicted vs true values |
+
+### Key Findings
+
+- **Voice features alone yield poor predictions** (R² ≈ 0.16 on test data), confirming that voice analysis cannot replace clinical motor assessment
+- LLS and SD converge to essentially the same solution, validating the SD implementation
+- Voice-based monitoring may serve as a **complementary screening tool**, but not a standalone diagnostic method
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `parkinson_regression.py` | Main analysis script (OOP-based) |
-| `parkinson_regression.ipynb` | Jupyter notebook with inline outputs |
-| `data/parkinsons_updrs.csv` | Dataset |
+| `parkinson_regression.py` | Main pipeline: data loading, preprocessing, LLS & SD regression |
+| `data/parkinsons_updrs.csv` | Parkinsons Telemonitoring dataset |

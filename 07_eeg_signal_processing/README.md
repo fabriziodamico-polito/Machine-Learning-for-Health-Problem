@@ -1,76 +1,68 @@
-# EEG Signal Processing — Gaussianity Tests & Blind Source Separation
+# EEG Signal Processing — CLT, Gaussianity Tests & FastICA
 
 ## Objective
 
-This lab covers two fundamental topics in biomedical signal processing:
+Two interrelated experiments:
+1. **Central Limit Theorem & Gaussianity Testing** — Generate approximate Gaussian samples using CLT and Box-Muller, then verify Gaussianity with multiple statistical tests
+2. **Blind Source Separation with FastICA** — Recover independent source signals from linear mixtures (cocktail party problem)
 
-1. **Gaussianity Testing**: Generate pseudo-Gaussian samples using the **Central Limit Theorem** and **Box-Muller** methods, then rigorously verify their Gaussianity through statistical tests
-2. **Blind Source Separation (BSS)**: Recover independent source signals from their linear mixtures using **FastICA**, and compare against **PCA**
+---
 
-## Techniques
+## Part 1: Central Limit Theorem & Gaussianity Tests
 
-### Part 1 — Gaussianity Testing
+### Approach
+- **CLT**: Sum of $N = 10$ independent uniform random variables → approximately Gaussian
+- **Box-Muller**: Exact transformation from uniform to Gaussian
+- **Gaussianity verification**: t-score, excess kurtosis, Anderson-Darling test, with p-values estimated via Monte Carlo simulation (10,000 experiments)
 
-| Method | Description |
-|--------|-------------|
-| **Central Limit Theorem (CLT)** | Sum of N uniform random variables approximates a Gaussian |
-| **Box-Muller Transform** | Exact method to generate Gaussian samples from uniform ones |
-| **Normal Probability Plot** | Q-Q plot to visually assess Gaussianity |
-| **t-Score Test** | Tests whether the sample mean matches the expected mean |
-| **Excess Kurtosis** | Measures deviation from Gaussian tail behavior (should be ≈ 0) |
-| **Anderson-Darling Test** | Powerful goodness-of-fit test for normality |
-| **p-Value Estimation** | Monte Carlo simulation (10,000 experiments) to estimate p-value curves |
+### Results
 
-### Part 2 — Blind Source Separation
+| | |
+|:---:|:---:|
+| <img src="./results/clt_histogram.png" width="400"/> | <img src="./results/cdf_comparison.png" width="400"/> |
+| CLT: uniform + Gaussian histograms vs theory | Measured vs theoretical CDF |
 
-| Method | Description |
-|--------|-------------|
-| **FastICA** | Independent Component Analysis using deflation algorithm; maximizes non-Gaussianity |
-| **PCA** | Principal Component Analysis; finds orthogonal components (decorrelation only) |
+| | |
+|:---:|:---:|
+| <img src="./results/qq_plot.png" width="400"/> | <img src="./results/anderson_darling.png" width="400"/> |
+| Normal probability plot (Q-Q) | Anderson-Darling p-value test |
 
-## Pipeline
+### Statistical Test Results
 
-### Part 1
-```
-Generate Uniform Samples → Sum (CLT) or Transform (Box-Muller)
-→ Histogram vs Theoretical PDF → CDF Comparison
-→ Normal Probability Plot → t-Score, Kurtosis, Anderson-Darling
-→ Monte Carlo p-Value Estimation
-```
+| Test | Statistic | Interpretation |
+|------|:---------:|----------------|
+| **t-score** | 0.844 | Well below critical value → mean consistent with $\mu = 5$ |
+| **Excess kurtosis** | 0.086 | Close to 0 (Gaussian has kurtosis = 0) |
+| **Anderson-Darling** | $a^2 = 1.18$ | Passes at standard significance levels |
 
-### Part 2
-```
-Generate 4 Source Signals (sin, square, sawtooth, triangular)
-→ Mix with Random Matrix A → Apply FastICA → Apply PCA
-→ Compare Recovered vs Original Signals
-→ Compare Estimated vs True Unmixing Matrix W
-```
+> With just $N = 10$ uniform variables, the CLT sum passes all Gaussianity tests, demonstrating the rapid convergence of the theorem.
 
-## Key Results
+---
 
-- **CLT** produces increasingly Gaussian samples as N grows; N=10 already passes most tests
-- **Box-Muller** generates exact Gaussian samples (passes all tests)
-- **FastICA** successfully recovers all 4 independent sources (up to sign/permutation ambiguity)
-- **PCA** fails to separate non-orthogonal sources — it only decorrelates, not makes independent
-- The estimated unmixing matrix $\hat{W}$ closely matches the true $W = A^{-1}$
+## Part 2: FastICA — Blind Source Separation
 
-## How to Run
+### Approach
+- 4 independent source signals: sinusoidal, square wave, sawtooth, triangular
+- Linearly mixed via a random $4 \times 4$ matrix: $Y = A \cdot X$
+- **FastICA** (deflation algorithm) recovers the original sources from the mixtures
+- Comparison with **PCA** to show that decorrelation alone is insufficient
 
-```bash
-cd 07_eeg_signal_processing
+### Results
 
-# Part 1: Gaussianity tests
-python central_limit_theorem.py
+| | |
+|:---:|:---:|
+| <img src="./results/original_signals.png" width="400"/> | <img src="./results/ica_recovered.png" width="400"/> |
+| Original source signals | FastICA recovered components |
 
-# Part 2: Blind Source Separation
-python fastica_bss.py
-```
+### Key Findings
+
+- **FastICA successfully recovers all 4 sources**, subject to permutation and sign/scaling ambiguity (inherent ICA limitations)
+- **PCA fails** to separate the sources — it only decorrelates, while ICA achieves true statistical independence
+- The experiment confirms that ICA works well for non-Gaussian sources, as the algorithm maximizes non-Gaussianity of the components
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `central_limit_theorem.py` | CLT, Box-Muller, and statistical tests |
-| `central_limit_theorem.ipynb` | Notebook with inline visualizations |
-| `fastica_bss.py` | FastICA vs PCA for source separation |
-| `fastica_bss.ipynb` | Notebook with inline visualizations |
+| `central_limit_theorem.py` | CLT/Box-Muller generation + 4 Gaussianity tests with Monte Carlo p-values |
+| `fastica_bss.py` | Blind source separation: signal generation, mixing, FastICA vs PCA recovery |

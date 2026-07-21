@@ -20,7 +20,7 @@ class Covid():
         # remove the unceratin swab results and set 1: positive / 0: negative
         xx = pd.read_csv(self.data)
         xx = xx[xx.COVID_swab_res!=1] # remove unclear results
-        xx.COVID_swab_res[xx.COVID_swab_res == 2] = 1 # set swab result from 2 to 1 for ill patients
+
         xx.loc[xx.COVID_swab_res==2,"COVID_swab_res"] = 1
         # data Analysis
         #xx.describe()
@@ -71,6 +71,7 @@ class Covid():
         plt.grid()
         plt.legend()
         plt.title(self.Test)
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'sens_spec_{self.Test}.png'))
         plt.show()
         plt.figure()
 
@@ -84,7 +85,8 @@ class Covid():
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate / Specificity')
         plt.grid()
-        plt.title('ROC curve')
+        plt.title(f'ROC curve ({self.Test})')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'roc_{self.Test}.png'))
         plt.show()
 
         # Manually calculation of Area Under the Curve (AUC)
@@ -104,9 +106,11 @@ class Covid():
         # Youden’s J statistic
         j = np.array(self.sensitivity) - (1 - np.array(self.specificity))
         plt.figure()
-        plt.plot(self.thresholds, j, label = 'TPR - FPR (Youden’s J statistic)')
+        plt.plot(self.thresholds, j, label = "TPR - FPR (Youden's J statistic)")
         plt.legend()
         plt.grid()
+        plt.title(f"Youden's J statistic ({self.Test})")
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'youden_{self.Test}.png'))
         plt.show()
 
         # get the optimal threshold
@@ -120,6 +124,8 @@ class Covid():
         plt.scatter(self.FPR[max_j], self.sensitivity[max_j], color = 'red', label = 'Optimal threshold')
         plt.legend()
         plt.grid()
+        plt.title(f'ROC with optimal threshold ({self.Test})')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', f'roc_threshold_{self.Test}.png'))
         plt.show()
         
         return optimal_threshold, self.sensitivity[max_j], self.specificity[max_j]

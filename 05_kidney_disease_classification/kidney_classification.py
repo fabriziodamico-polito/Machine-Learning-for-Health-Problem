@@ -171,7 +171,7 @@ class ChronicKidneyDiseaseLab:
         tree.plot_tree(clf, feature_names=self.feat_names[:24],
                        class_names=self.target_names, rounded=True,
                        proportion=False, filled=True)
-        plt.savefig('decision_tree.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'decision_tree.png'))
 
         return clf
 
@@ -198,7 +198,7 @@ class ChronicKidneyDiseaseLab:
         plt.bar(range(len(importances)), importances[indices], align="center")
         plt.xticks(range(len(importances)), [self.feat_names[i] for i in indices], rotation=90)
         plt.tight_layout()
-        plt.savefig('features_importance.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'results', 'features_importance.png'))
 
         return rf
 
@@ -221,7 +221,7 @@ class ChronicKidneyDiseaseLab:
         print('accuracy =', accuracy_score(y_test, y_pred_rf))
         print(confusion_matrix(y_test, y_pred_rf))
         
-        # 6Train CART tree classifier
+        # Train CART tree classifier
         clf = tree.DecisionTreeClassifier(criterion='entropy') # No random_state
         clf.fit(X_train, y_train)
         y_pred_dt = clf.predict(X_test)
