@@ -6,7 +6,7 @@
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Laboratory assignments for the **ICT Engineering for Smart Societies (ICTE4SS)** course at [Politecnico di Torino](https://www.polito.it/), covering core Machine Learning techniques applied to real-world biomedical and signal processing problems.
+> Laboratory assignments for the Machine Learning for Health course at [Politecnico di Torino](https://www.polito.it/), covering core Machine Learning techniques applied to real-world biomedical and signal processing problems.
 
 ---
 
@@ -109,5 +109,5 @@ The [`utils/minimization.py`](./utils/minimization.py) module provides a reusabl
 | ------------------ | ---------------- | --------------------------------------------------------------- |
 | `SolveMinProbl`  | —               | Abstract base class with common plotting and printing           |
 | `SolveLLS`       | Closed-form      | $(A^T A)^{-1} A^T y$                                          |
-| `SolveGrad`      | Gradient Descent | Fixed learning rate $\gamma$                                   |
-| `SolveSteepDesc` | Steepest Descent | Adaptive $\gamma_k = \|\nabla J\|^2 / (\nabla J^T H \nabla J)$ |
+| `SolveGrad`      | Gradient Descent | Fixed learning rate$\gamma$                                   |
+| `SolveSteepDesc` | Steepest Descent | Adaptive$\gamma_k = \|\nabla J\|^2 / (\nabla J^T H \nabla J)$ |
